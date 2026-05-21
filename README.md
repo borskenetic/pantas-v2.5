@@ -89,6 +89,8 @@ php artisan storage:link
 
 Ensure writable directories: `storage/`, `bootstrap/cache/`, and upload folders under `public/images/` (see `.gitkeep` files).
 
+**Videos:** MP4 files under `public/videos/` are not stored on GitHub (too large). After cloning, copy your slideshow/background videos into `public/videos/` on the server.
+
 ## Main features
 
 - **Catalog** — MARC-based books, programs, circulation, fines, trash/archive
