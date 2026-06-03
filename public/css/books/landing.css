@@ -12,7 +12,7 @@ body {
 /* ADdU-style OPAC header (search-active) */
 /* Search header (minimal, matches your structure) */
 .opac-search-header {
-    background: var(--brand-button-bg, #22333b);
+    background: var(--brand-button-bg, #1f4ea7);
     color: var(--brand-button-text, #fff);
     padding: 12px 14px;
 }
@@ -69,13 +69,13 @@ body {
     padding: 0 18px;
     border-radius: 10px;
     font-weight: 700;
-    background: var(--brand-accent, #22333b);
+    background: var(--brand-accent, #1f4ea7);
     border-color: var(--brand-accent, #ffffff);
     color: var(--brand-success-text, #fff);
 }
 
 .opac-search-btn:hover {
-    background: var(--brand-success-hover-bg, #ffb845);
+    background: var(--brand-success-hover-bg, #2e7d32);
     border-color: var(--brand-success-hover-bg, #ffffff);
     color: var(--brand-success-text, #fff);
 }
@@ -112,14 +112,14 @@ header {
     padding: 8px 14px;
     border-radius: 999px;
     text-decoration: none;
-    color: var(--brand-nav-link, #22333b);
+    color: var(--brand-nav-link, #1f4ea7);
     font-weight: 600;
     transition: background-color 0.2s ease, transform 0.2s ease, color 0.2s ease;
 }
 
 .opac-nav-link:hover {
     background-color: var(--brand-nav-hover-bg, #ffffff);
-    color: var(--brand-nav-hover-text, #ffb845);
+    color: var(--brand-nav-hover-text, #2e7d32);
     transform: scale(1.03);
 }
 
@@ -451,7 +451,7 @@ header {
 }
 
         #nab{
-        color: #22333b  !important;
+        color: #1f4ea7  !important;
         }
 
 #searchBar {

@@ -105,11 +105,28 @@ class BookLogController extends Controller
                         ->orWhere('patron_name', $legacySpace);
                 });
             }
+        } elseif ($request->filled('filter_patron')) {
+            $term = trim((string) $request->filter_patron);
+            if ($term !== '') {
+                $logs->where(function ($q) use ($term) {
+                    $q->where('patron_name', 'like', '%'.$term.'%')
+                        ->orWhereHas('student', function ($s) use ($term) {
+                            $s->where('firstname', 'like', '%'.$term.'%')
+                                ->orWhere('lastname', 'like', '%'.$term.'%')
+                                ->orWhere('id_number', 'like', '%'.$term.'%')
+                                ->orWhereRaw(
+                                    'LOWER(CONCAT(firstname, \' \', lastname)) LIKE ?',
+                                    ['%'.strtolower($term).'%']
+                                );
+                        });
+                });
+            }
         }
 
         if ($request->filled('book_title')) {
-            $logs->whereHas('book', function ($query) use ($request) {
-                $query->where('title_statement', $request->book_title);
+            $titleTerm = trim((string) $request->book_title);
+            $logs->whereHas('book', function ($query) use ($titleTerm) {
+                $query->where('title_statement', 'like', '%'.$titleTerm.'%');
             });
         }
 
@@ -134,38 +151,53 @@ class BookLogController extends Controller
 
         $logs = $logs->latest()->paginate(10);
 
-        $studentIds = BookLog::whereNotNull('student_id')->distinct()->pluck('student_id');
-        $filterStudents = Student::whereIn('id', $studentIds)
-            ->orderBy('lastname')
-            ->orderBy('firstname')
-            ->get();
-
-        $bookTitles = Book::pluck('title_statement')->unique();
-
         $prefillPatronLabel = '';
         if ($request->filled('student_id')) {
             $ps = Student::find($request->student_id);
             if ($ps) {
-                $prefillPatronLabel = "{$ps->lastname}, {$ps->firstname}"
-                    .($ps->id_number ? " ({$ps->id_number})" : '');
+                $prefillPatronLabel = $this->patronDisplayLabel($ps);
             }
+        } elseif ($request->filled('filter_patron')) {
+            $prefillPatronLabel = trim((string) $request->filter_patron);
         }
 
-        return view('books.logs', compact('logs', 'filterStudents', 'bookTitles', 'prefillPatronLabel'));
+        $filterBookTitle = trim((string) $request->input('book_title', ''));
+
+        $prefillCopyIdentifier = trim((string) $request->input(
+            'copy_identifier',
+            $request->input('rfid', '')
+        ));
+
+        return view('books.logs', compact(
+            'logs',
+            'prefillPatronLabel',
+            'filterBookTitle',
+            'prefillCopyIdentifier',
+        ));
     }
 
     public function store(Request $request)
     {
+        $copyCode = trim((string) ($request->input('copy_identifier') ?: $request->input('rfid')));
+
         $request->validate([
-            'rfid' => 'required|string',
+            'copy_identifier' => 'nullable|string|max:255',
+            'rfid' => 'nullable|string|max:255',
             'status' => 'required|string|in:checked_out,room_use,checked_in',
             'student_id' => 'required|integer|exists:students,id',
         ]);
 
-        $book = Book::where('rfid', $request->rfid)->first();
+        if ($copyCode === '') {
+            return back()->withInput()->with('error', 'Enter the copy accession number, barcode, or RFID.');
+        }
+
+        $book = Book::findByCopyIdentifier($copyCode);
 
         if (! $book) {
-            return back()->with('error', 'Book not found.');
+            return back()->withInput()->with(
+                'error',
+                'No copy found for that code. Use accession number (recommended), barcode, or RFID.'
+            );
         }
 
         $student = Student::findOrFail($request->student_id);
@@ -332,6 +364,36 @@ class BookLogController extends Controller
         return back()->with('success', 'Loan renewed. New due date: '.$newDue->format('Y-m-d').'. ('.$lastLog->renew_count.'/'.BookController::MAX_RENEWALS_PER_LOAN.' renewals used)');
     }
 
+    protected function patronDisplayLabel(Student $s): string
+    {
+        $label = "{$s->lastname}, {$s->firstname}";
+        if ($s->id_number) {
+            $label .= " ({$s->id_number})";
+        }
+
+        return $label;
+    }
+
+    public function bookTitleLogSuggestions(Request $request)
+    {
+        $search = trim((string) $request->get('query', ''));
+        if ($search === '') {
+            return response()->json([]);
+        }
+
+        $titles = Book::query()
+            ->whereHas('logs')
+            ->where('title_statement', 'like', '%'.$search.'%')
+            ->whereNotNull('title_statement')
+            ->orderBy('title_statement')
+            ->pluck('title_statement')
+            ->unique()
+            ->take(12)
+            ->values();
+
+        return response()->json($titles->map(fn ($title) => ['title' => $title]));
+    }
+
     public function patronSuggestions(Request $request)
     {
         $search = $request->get('query', '');
@@ -347,17 +409,10 @@ class BookLogController extends Controller
         })
             ->limit(10)
             ->get()
-            ->map(function ($s) {
-                $label = "{$s->lastname}, {$s->firstname}";
-                if ($s->id_number) {
-                    $label .= " ({$s->id_number})";
-                }
-
-                return [
-                    'id' => $s->id,
-                    'name' => $label,
-                ];
-            });
+            ->map(fn ($s) => [
+                'id' => $s->id,
+                'name' => $this->patronDisplayLabel($s),
+            ]);
 
         return response()->json($suggestions);
     }
@@ -366,9 +421,10 @@ class BookLogController extends Controller
     {
         $search = $request->get('query', '');
 
-        $books = Book::where(function ($q) use ($search) {
+        $books = Book::whereNull('archived_at')->where(function ($q) use ($search) {
             $q->where('title_statement', 'LIKE', "%{$search}%")
                 ->orWhere('main_author', 'LIKE', "%{$search}%")
+                ->orWhere('accession_no', 'LIKE', "%{$search}%")
                 ->orWhere('rfid', 'LIKE', "%{$search}%")
                 ->orWhere('barcode', 'LIKE', "%{$search}%");
         })
@@ -387,8 +443,11 @@ class BookLogController extends Controller
                     'id' => $b->id,
                     'title' => $b->title_statement,
                     'author' => $b->main_author,
+                    'accession_no' => $b->accession_no,
                     'barcode' => $b->barcode,
                     'rfid' => $b->rfid,
+                    'copy_identifier' => $b->copyIdentifierForCirculation(),
+                    'copy_identifier_summary' => $b->copyIdentifierSummary(),
                     'availability' => $b->availability,
                     'last_student_id' => $lastCheckout?->student_id,
                     'last_patron' => $lastCheckout ? $lastCheckout->patronLabel() : null,

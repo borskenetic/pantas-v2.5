@@ -17,6 +17,7 @@
 
 @php
     $hasActiveQuery = $hasActiveQuery ?? false;
+    $showAll = request()->boolean('show_all');
     $statusFilter = request('status');
 @endphp
 
@@ -26,6 +27,11 @@
     <aside class="books-index-sidebar card p-3">
 
         <h6 class="books-sidebar-heading">Find books</h6>
+
+        <a href="{{ route('book.index', ['show_all' => 1]) }}"
+           class="btn btn-primary w-100 mb-3 {{ $showAll && !request('search') && !request('program') && !request('year1') && !$statusFilter ? 'active' : '' }}">
+            Show all books
+        </a>
 
         <form action="{{ route('book.index') }}" method="GET" class="books-sidebar-form">
             @if($statusFilter)
@@ -115,6 +121,9 @@
             <div class="books-results-summary mb-3">
                 <span class="text-muted">
                     Showing {{ $books->total() }} {{ $books->total() === 1 ? 'title' : 'titles' }}
+                    @if($showAll && !request('search') && !request('program') && !request('year1') && !$statusFilter)
+                        (entire catalog)
+                    @endif
                     @if(request('search'))
                         matching “{{ request('search') }}”
                     @endif
@@ -231,10 +240,13 @@
             <div class="card books-index-welcome p-5 text-center">
                 <div class="books-index-welcome-icon mb-3" aria-hidden="true">📚</div>
                 <h5 class="mb-2">Search or filter to view the catalog</h5>
-                <p class="text-muted mb-0">
+                <p class="text-muted mb-3">
                     Use the panel on the left to search by title or author, filter by program or publication year,
                     or choose <strong>Available</strong> / <strong>Borrowed</strong> to load results here.
                 </p>
+                <a href="{{ route('book.index', ['show_all' => 1]) }}" class="btn btn-primary btn-lg">
+                    Show all books
+                </a>
             </div>
 
         @endif

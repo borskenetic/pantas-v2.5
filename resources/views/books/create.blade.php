@@ -30,6 +30,22 @@
     <form id="addBookForm" method="POST" action="{{ route('book.store') }}" enctype="multipart/form-data" class="catalog-form">
         @csrf
 
+        <div class="catalog-multicopy-toggle card mb-3">
+            <div class="card-body py-3">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" role="switch" name="multiple_copies" value="1"
+                           id="multiple_copies" {{ old('multiple_copies') ? 'checked' : '' }}>
+                    <label class="form-check-label fw-semibold" for="multiple_copies">
+                        Multiple copies
+                    </label>
+                </div>
+                <p class="text-muted small mb-0 mt-2">
+                    Catalog several copies of the same title in one go. Shared bibliographic data; each copy gets its own
+                    <strong>accession number</strong> and <strong>RFID</strong>.
+                </p>
+            </div>
+        </div>
+
         <div class="catalog-tabs card">
             <ul class="nav nav-tabs catalog-tabs__nav" id="catalogMainTabs" role="tablist">
                 <li class="nav-item" role="presentation">
@@ -65,12 +81,19 @@
                     <p class="catalog-tab-lead text-muted">
                         MARC cataloging fields — use the pills below to switch between field groups.
                     </p>
-                    @php $marcValues = []; @endphp
+                    @php
+                        $marcValues = [];
+                        $excludeBookColumns = old('multiple_copies')
+                            ? config('catalog.copy_unique_columns', [])
+                            : [];
+                    @endphp
                     @include('books.partials.marc_editor', [
                         'frameworkFields' => $frameworkFields,
                         'grouped' => true,
                         'tabbed' => true,
+                        'excludeBookColumns' => $excludeBookColumns,
                     ])
+                    @include('books.partials.catalog_copy_rows')
                 </div>
 
                 {{-- Tab 2: Programs --}}
@@ -80,6 +103,7 @@
                         Optional — link this title to prospectus programs and courses for discovery.
                     </p>
                     <div class="row g-3">
+                        @include('books.partials.catalog_curriculum_field')
                         <div class="col-12">
                             <label class="form-label catalog-field-label">Program(s)</label>
                             <div id="program-container" class="program-stack">
@@ -141,7 +165,7 @@
             <div class="catalog-page__actions-nav d-flex gap-2">
                 <button type="button" class="btn btn-outline-secondary" id="catalogTabPrev" disabled>← Previous</button>
                 <button type="button" class="btn btn-outline-secondary" id="catalogTabNext">Next →</button>
-                <button type="submit" class="btn btn-save">Save book</button>
+                <button type="submit" class="btn btn-save">{{ old('multiple_copies') ? 'Save all copies' : 'Save book' }}</button>
             </div>
         </footer>
     </form>
@@ -154,4 +178,6 @@
 @include('books.partials.catalog_tabs_script', ['formId' => 'addBookForm'])
 @include('books.partials.catalog_courses_script')
 @include('books.partials.catalog_programs_script')
+@include('books.partials.catalog_multicopy_script')
+@include('books.partials.catalog_marc_pickers_script')
 @endsection

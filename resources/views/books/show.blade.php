@@ -14,63 +14,8 @@
         ? asset('storage/' . $book->cover_image)
         : asset('images/defaultBook.png');
 
-    $detailSections = [
-        'Identification & codes' => [
-            ['tag' => '001', 'label' => 'Control number', 'value' => $book->control_no],
-            ['tag' => '005', 'label' => 'Date & time stamp', 'value' => $book->date_time_stamp],
-            ['tag' => '008', 'label' => 'Fixed-length data', 'value' => $book->fixed_length_data],
-            ['tag' => '020', 'label' => 'ISBN', 'value' => $book->isbn],
-            ['tag' => '020', 'label' => 'Price', 'value' => $book->price],
-            ['tag' => '040', 'label' => 'Cataloging source', 'value' => $book->cataloging_source_a],
-            ['tag' => '040', 'label' => 'Language', 'value' => $book->cataloging_source_b],
-            ['tag' => '040', 'label' => 'Description conventions', 'value' => $book->cataloging_source_e],
-        ],
-        'Authors & title' => [
-            ['tag' => '100', 'label' => 'Main author', 'value' => $book->main_author],
-            ['tag' => '245', 'label' => 'Title statement', 'value' => $book->title_statement],
-            ['tag' => '245', 'label' => 'Title responsibility', 'value' => $book->title_author],
-            ['tag' => '250', 'label' => 'Edition', 'value' => $book->edition],
-        ],
-        'Publication' => [
-            ['tag' => '264', 'label' => 'Publication place', 'value' => $book->pub_place],
-            ['tag' => '264', 'label' => 'Publisher', 'value' => $book->publisher],
-            ['tag' => '264', 'label' => 'Publication year', 'value' => $book->pub_year],
-        ],
-        'Physical description' => [
-            ['tag' => '300', 'label' => 'Pages', 'value' => $book->pages],
-            ['tag' => '300', 'label' => 'Illustrations', 'value' => $book->illustrations],
-            ['tag' => '300', 'label' => 'Size', 'value' => $book->size],
-            ['tag' => '300', 'label' => 'Type of unit', 'value' => $book->volume],
-            ['tag' => '336', 'label' => 'Content type', 'value' => $book->content_type],
-            ['tag' => '337', 'label' => 'Media type', 'value' => $book->media_type],
-            ['tag' => '338', 'label' => 'Carrier type', 'value' => $book->carrier_type],
-        ],
-        'Notes & series' => [
-            ['tag' => '490', 'label' => 'Series title', 'value' => $book->series_title],
-            ['tag' => '500', 'label' => 'General note', 'value' => $book->general_note],
-            ['tag' => '504', 'label' => 'Bibliography note', 'value' => $book->bibliography_note],
-            ['tag' => '541', 'label' => 'Source of acquisition', 'value' => $book->source_vendor],
-            ['tag' => '541', 'label' => 'Date of acquisition', 'value' => $book->source_date],
-        ],
-        'Subjects & shelving' => [
-            ['tag' => '650', 'label' => 'Subject', 'value' => $book->subject_topic],
-            ['tag' => '650', 'label' => 'Form', 'value' => $book->subject_form],
-            ['tag' => '655', 'label' => 'Genre', 'value' => $book->genre],
-            ['tag' => '852', 'label' => 'Library', 'value' => $book->library_name],
-            ['tag' => '852', 'label' => 'Sublocation', 'value' => $book->section],
-            ['tag' => '852', 'label' => 'Call number', 'value' => $book->call_number],
-            ['tag' => '949', 'label' => 'Accession no.', 'value' => $book->accession_no],
-            ['tag' => '876', 'label' => 'Barcode', 'value' => $book->barcode],
-            ['tag' => '999', 'label' => 'RFID', 'value' => $book->rfid],
-            ['tag' => '996', 'label' => 'Year level', 'value' => $book->year],
-            ['tag' => '650', 'label' => 'Course', 'value' => $book->course],
-        ],
-    ];
-
-    $visibleSections = collect($detailSections)->map(function ($rows, $title) {
-        $filled = collect($rows)->filter(fn ($r) => filled($r['value'] ?? null))->values();
-        return $filled->isEmpty() ? null : ['title' => $title, 'rows' => $filled];
-    })->filter()->values();
+    $visibleSections = collect($marcDetailSections ?? []);
+    $copyIdForCirculation = $book->copyIdentifierForCirculation();
 @endphp
 
 <div class="book-show">
@@ -85,15 +30,19 @@
         <div class="book-show__hero-actions">
             <a href="{{ route('book.index') }}" class="btn btn-show-outline">← Catalog</a>
             <a href="{{ route('book.edit', $book->id) }}" class="btn btn-show-outline">Edit</a>
-            @if($book->availability === 'Available')
-                <a href="{{ route('logs.index', ['rfid' => $book->rfid, 'status' => 'checked_out']) }}"
-                   class="btn btn-show-primary">Check out</a>
+            @if($copyIdForCirculation)
+                @if($book->availability === 'Available')
+                    <a href="{{ route('logs.index', ['copy_identifier' => $copyIdForCirculation, 'status' => 'checked_out']) }}"
+                       class="btn btn-show-primary">Check out</a>
+                @else
+                    <a href="{{ route('logs.index', [
+                        'copy_identifier' => $copyIdForCirculation,
+                        'status' => 'checked_in',
+                        'patron_name' => $lastTransaction?->patron_name ?? '',
+                    ]) }}" class="btn btn-show-primary">Check in</a>
+                @endif
             @else
-                <a href="{{ route('logs.index', [
-                    'rfid' => $book->rfid,
-                    'status' => 'checked_in',
-                    'patron_name' => $lastTransaction?->patron_name ?? '',
-                ]) }}" class="btn btn-show-primary">Check in</a>
+                <span class="btn btn-show-primary disabled" title="Add an accession number, barcode, or RFID in cataloging first">No copy ID</span>
             @endif
         </div>
     </header>
@@ -124,6 +73,18 @@
                     <div class="book-show__fact">
                         <dt>Call number</dt>
                         <dd><code class="book-show__code">{{ $book->call_number }}</code></dd>
+                    </div>
+                    @endif
+                    @if(filled($book->accession_no))
+                    <div class="book-show__fact">
+                        <dt>Accession</dt>
+                        <dd>{{ $book->accession_no }}</dd>
+                    </div>
+                    @endif
+                    @if($copyIdForCirculation)
+                    <div class="book-show__fact">
+                        <dt>{{ $book->copyIdentifierTypeLabel() ?? 'Copy ID' }}</dt>
+                        <dd><code>{{ $copyIdForCirculation }}</code></dd>
                     </div>
                     @endif
                     @if(filled($book->accession_no))
@@ -167,7 +128,7 @@
         <div class="col-12 col-lg-8">
             <div class="book-show__card book-show__card--marc">
                 <h2 class="book-show__card-title">MARC catalog details</h2>
-                <p class="book-show__card-lead text-muted">Grouped by catalog area. Empty fields are hidden.</p>
+                <p class="book-show__card-lead text-muted">From the Books catalog framework. Empty fields are hidden.</p>
 
                 @if($visibleSections->isEmpty())
                     <p class="text-muted mb-0">No additional bibliographic fields on file for this copy.</p>
@@ -183,7 +144,7 @@
                                             aria-expanded="{{ $index === 0 ? 'true' : 'false' }}"
                                             aria-controls="marcSection{{ $index }}">
                                         {{ $section['title'] }}
-                                        <span class="book-show__section-count">{{ $section['rows']->count() }} fields</span>
+                                        <span class="book-show__section-count">{{ count($section['rows']) }} fields</span>
                                     </button>
                                 </h3>
                                 <div id="marcSection{{ $index }}"

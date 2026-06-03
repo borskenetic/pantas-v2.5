@@ -16,13 +16,21 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             MarcFrameworkSeeder::class,
+            ProspectusSeeder::class,
+            StudentSampleSeeder::class,
+            BookSampleSeeder::class,
         ]);
 
-        // User::factory(10)->create();
+        User::updateOrCreate(
+            ['email' => 'test@example.com'],
+            [
+                'fname' => 'Test',
+                'lname' => 'User',
+                'password' => bcrypt('password'),
+                'role' => 'admin',
+            ]
+        );
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        $this->command?->info('Database seeded: MARC framework, programs, students, books, test user (test@example.com).');
     }
 }

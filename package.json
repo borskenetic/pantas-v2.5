@@ -4,7 +4,9 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
-        "build:tailwind": "tailwindcss -i ./resources/css/tailwind-build.css -o ./public/css/tailwind-build.min.css --minify"
+        "build:tailwind": "tailwindcss -i ./resources/css/tailwind-build.css -o ./public/css/tailwind-build.min.css --minify",
+        "copy-vendor": "node scripts/copy-vendor-assets.cjs",
+        "postinstall": "node scripts/copy-vendor-assets.cjs"
     },
     "devDependencies": {
         "@tailwindcss/forms": "^0.5.2",

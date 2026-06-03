@@ -22,8 +22,13 @@ class HolidayController extends Controller
 
     public function toggle(Request $request)
     {
-        $date = $request->date;
-    
+        $validated = $request->validate([
+            'date' => 'required|date',
+            'name' => 'nullable|string|max:255',
+        ]);
+
+        $date = $validated['date'];
+
         $holiday = Holiday::where('holiday_date', $date)->first();
     
         if ($holiday) {
@@ -36,7 +41,7 @@ class HolidayController extends Controller
     
         $holiday = Holiday::create([
             'holiday_date' => $date,
-            'name' => $request->name
+            'name' => $validated['name'] ?? null,
         ]);
     
         return response()->json([

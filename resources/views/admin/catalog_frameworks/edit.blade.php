@@ -147,7 +147,7 @@
                             <div class="col-12">
                                 <label class="form-label small">Input type</label>
                                 <select name="input_type" id="newInputType" class="form-select form-select-sm">
-                                    @foreach (['text', 'textarea', 'select', 'date'] as $t)
+                                    @foreach (['text', 'textarea', 'select', 'date', 'time', 'datetime'] as $t)
                                         <option value="{{ $t }}" @selected(old('input_type', 'text') === $t)>{{ $t }}</option>
                                     @endforeach
                                 </select>

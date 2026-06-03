@@ -9,6 +9,7 @@ use App\Models\Program;
 use App\Models\ProgramCourse;
 use App\Models\BookMarcField;
 use App\Models\CatalogFramework;
+use App\Services\BookMarcDisplay;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -20,6 +21,8 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class BookController extends Controller
 {
+    public function __construct(protected BookMarcDisplay $marcDisplay) {}
+
     /**
      * Max number of active loans (check-out or room use) one patron may have at once.
      * Enforced in {@see \App\Http\Controllers\BookLogController} and {@see \App\Http\Controllers\CheckoutController}.
@@ -66,6 +69,7 @@ class BookController extends Controller
                    ->orWhere('library_name', 'like', $like)
                    ->orWhere('section', 'like', $like)
                    ->orWhere('course', 'like', $like)
+                   ->orWhere('curriculum', 'like', $like)
                    ->orWhere('year', 'like', $like)
                    ->orWhere('series_title', 'like', $like)
                    ->orWhere('subject_topic', 'like', $like)
@@ -88,11 +92,7 @@ class BookController extends Controller
    }
    protected function booksFramework()
    {
-       return CatalogFramework::where('name', 'Books')
-           ->with(['fields' => function ($q) {
-               $q->where('visible', true)->orderBy('sort_order')->with('marcField');
-           }])
-           ->first();
+       return $this->marcDisplay->booksFramework();
    }
 
    /** Strip empty selects so `exists:programs,id` does not run on "". */
@@ -112,49 +112,7 @@ class BookController extends Controller
 
    protected function marcValuesForBook(Book $book, $frameworkFields = null): array
    {
-       $out = [];
-       foreach ($book->marcFields as $mf) {
-           $subKey = $mf->subfield ?? '_';
-           $out[$mf->tag][$subKey][$mf->occurrence] = $mf->value;
-       }
-
-       if (! $frameworkFields) {
-           return $out;
-       }
-
-       foreach ($frameworkFields as $ff) {
-           $mf = $ff->marcField;
-           if (! $mf || ! $ff->book_column) {
-               continue;
-           }
-
-           $tag = $mf->tag;
-           $subKey = $mf->subfield ?? '_';
-           $existing = $out[$tag][$subKey] ?? [];
-           $hasValue = is_array($existing) && count(array_filter($existing, static function ($v) {
-               return $v !== null && $v !== '';
-           })) > 0;
-           if ($hasValue) {
-               continue;
-           }
-
-           $val = $book->{$ff->book_column} ?? null;
-           if ($val === null || $val === '') {
-               continue;
-           }
-
-           $val = (string) $val;
-           if ($mf->repeatable && str_contains($val, ';')) {
-               $parts = array_values(array_filter(array_map('trim', explode(';', $val))));
-               foreach ($parts as $i => $part) {
-                   $out[$tag][$subKey][$i] = $part;
-               }
-           } else {
-               $out[$tag][$subKey][0] = $val;
-           }
-       }
-
-       return $out;
+       return $this->marcDisplay->marcValuesForBook($book, $frameworkFields);
    }
 
    protected function extractMarcPayload(Request $request): array
@@ -224,12 +182,115 @@ class BookController extends Controller
 
        $book->save();
    }
+
+   /**
+    * @return array<string, array<string, array<int, string>>>
+    */
+   protected function stripCopyIdentifiersFromMarc(array $marc): array
+   {
+       foreach (config('catalog.copy_unique_marc', []) as $def) {
+           $tag = $def['tag'];
+           $subKey = ($def['subfield'] ?? null) ?? '_';
+           unset($marc[$tag][$subKey]);
+           if (isset($marc[$tag]) && $marc[$tag] === []) {
+               unset($marc[$tag]);
+           }
+       }
+
+       return $marc;
+   }
+
+   /**
+    * @param  array<string, mixed>  $copy
+    * @return array<string, array<string, array<int, string>>>
+    */
+   protected function applyCopyIdentifiersToMarc(array $marc, array $copy): array
+   {
+       foreach (config('catalog.copy_unique_marc', []) as $def) {
+           $column = $def['book_column'];
+           $val = trim((string) ($copy[$column] ?? ''));
+           if ($val === '') {
+               continue;
+           }
+           $tag = $def['tag'];
+           $subKey = ($def['subfield'] ?? null) ?? '_';
+           $marc[$tag][$subKey][0] = $val;
+       }
+
+       return $marc;
+   }
+
+   protected function validateCopyRows(Request $request): void
+   {
+       $copies = $request->input('copies', []);
+       if (! is_array($copies) || count($copies) === 0) {
+           throw ValidationException::withMessages([
+               'copies' => ['Add at least one copy (accession and/or RFID).'],
+           ]);
+       }
+
+       $accessions = [];
+       $rfids = [];
+       $errors = [];
+
+       foreach ($copies as $i => $copy) {
+           if (! is_array($copy)) {
+               continue;
+           }
+           $acc = trim((string) ($copy['accession_no'] ?? ''));
+           $rfid = trim((string) ($copy['rfid'] ?? ''));
+
+           if ($acc === '' && $rfid === '') {
+               $errors["copies.{$i}.accession_no"] = ['Each copy needs an accession number and/or RFID.'];
+               continue;
+           }
+
+           if ($acc !== '') {
+               if (in_array($acc, $accessions, true)) {
+                   $errors["copies.{$i}.accession_no"] = ['Duplicate accession in this batch.'];
+               } elseif (Book::withTrashed()->where('accession_no', $acc)->exists()) {
+                   $errors["copies.{$i}.accession_no"] = ['Accession already exists in the catalog.'];
+               } else {
+                   $accessions[] = $acc;
+               }
+           }
+
+           if ($rfid !== '') {
+               if (in_array($rfid, $rfids, true)) {
+                   $errors["copies.{$i}.rfid"] = ['Duplicate RFID in this batch.'];
+               } elseif (Book::withTrashed()->where('rfid', $rfid)->exists()) {
+                   $errors["copies.{$i}.rfid"] = ['RFID already exists in the catalog.'];
+               } else {
+                   $rfids[] = $rfid;
+               }
+           }
+       }
+
+       if ($errors !== []) {
+           throw ValidationException::withMessages($errors);
+       }
+   }
+
+   protected function assertCopyUniqueOnBook(Book $book): void
+   {
+       if ($book->barcode && Book::withTrashed()->where('barcode', $book->barcode)->where('id', '!=', $book->id)->exists()) {
+           throw ValidationException::withMessages(['marc.876.p' => ['Barcode must be unique.']]);
+       }
+       if ($book->rfid && Book::withTrashed()->where('rfid', $book->rfid)->where('id', '!=', $book->id)->exists()) {
+           throw ValidationException::withMessages(['marc.999.r' => ['RFID must be unique.']]);
+       }
+       if ($book->accession_no && Book::withTrashed()->where('accession_no', $book->accession_no)->where('id', '!=', $book->id)->exists()) {
+           throw ValidationException::withMessages(['copies' => ['Accession '.$book->accession_no.' already exists in the catalog.']]);
+       }
+   }
+
    public function index(Request $request)
     {
         // --- Get programs for filter dropdown ---
         $programs = Program::orderBy('program_name')->get();
 
-        $hasActiveQuery = $request->filled('search')
+        $hasActiveQuery = $request->boolean('show_all')
+            || $request->filled('search')
             || $request->filled('program')
             || ($request->filled('year_filter') && $request->filled('year1'))
             || ($request->has('status') && in_array($request->status, ['Available', 'Borrowed'], true));
@@ -458,130 +519,7 @@ class BookController extends Controller
      */
     protected function opacMarcViewRowsForGroupedTitle(Book $rep, $fullBooks): array
     {
-        if ($fullBooks->isEmpty()) {
-            return [];
-        }
-
-        $rows = [];
-
-        $scalarDefs = [
-            ['attr' => 'control_no', 'label' => '001 (Control No.):'],
-            ['attr' => 'date_time_stamp', 'label' => '005 (Date & Time Stamp):'],
-            ['attr' => 'fixed_length_data', 'label' => '008 (Fixed-Length Data):'],
-            ['attr' => 'isbn', 'label' => '020 ‡a (ISBN):'],
-            ['attr' => 'price', 'label' => '020 ‡c (Price):'],
-            ['attr' => 'cataloging_source_a', 'label' => '040 ‡a (Cataloging Source):'],
-            ['attr' => 'cataloging_source_b', 'label' => '040 ‡b (Language):'],
-            ['attr' => 'cataloging_source_e', 'label' => '040 ‡e (Description Conventions)'],
-            ['attr' => 'main_author', 'label' => '100 ‡a (Main Author)'],
-            ['attr' => 'title_statement', 'label' => '245 ‡a (Title)'],
-            ['attr' => 'title_author', 'label' => '245 ‡c (Title Responsibility)'],
-            ['attr' => 'edition', 'label' => '250 ‡a (Edition)'],
-            ['attr' => 'pub_place', 'label' => '264 ‡a (Publication Place)'],
-            ['attr' => 'publisher', 'label' => '264 ‡b (Publisher)'],
-            ['attr' => 'pub_year', 'label' => '264 ‡c (Publication Year)'],
-            ['attr' => 'pages', 'label' => '300 ‡a (Pages)'],
-            ['attr' => 'illustrations', 'label' => '300 ‡b (Illustrations)'],
-            ['attr' => 'size', 'label' => '300 ‡c (Size)'],
-            ['attr' => 'volume', 'label' => '300 ‡f (Type of unit)'],
-            ['attr' => 'content_type', 'label' => '336 ‡a (Content Type)'],
-            ['attr' => 'media_type', 'label' => '337 ‡a (Media Type)'],
-            ['attr' => 'carrier_type', 'label' => '338 ‡a (Carrier Type)'],
-            ['attr' => 'series_title', 'label' => '490 ‡a (Series Title)'],
-            ['attr' => 'general_note', 'label' => '500 ‡a (General Note)'],
-            ['attr' => 'bibliography_note', 'label' => '504 ‡a (Bibliography Note)'],
-            ['attr' => 'source_vendor', 'label' => '541 ‡a (Immediate source of acquisition)'],
-            ['attr' => 'source_date', 'label' => '541 ‡d (Date of acquisition)'],
-            ['attr' => 'subject_topic', 'label' => '650 ‡a (Subject)'],
-            ['attr' => 'subject_form', 'label' => '650 ‡v (Form)'],
-            ['attr' => 'genre', 'label' => '655 ‡a (Genre)'],
-            ['attr' => 'library_name', 'label' => '852 ‡b (Library Name)'],
-            ['attr' => 'section', 'label' => '852 ‡c (Sublocation / shelving)'],
-            ['attr' => 'call_number', 'label' => '852 ‡h (Call Number)'],
-            ['attr' => 'accession_no', 'label' => '949 (Accession No.)'],
-            ['attr' => 'barcode', 'label' => '876 ‡p (Barcode)'],
-            ['attr' => 'rfid', 'label' => '999 ‡r (RFID, local)'],
-            ['attr' => 'year', 'label' => '996 ‡e (Year)'],
-            ['attr' => 'course', 'label' => '650 ‡a (Course)'],
-        ];
-
-        foreach ($scalarDefs as $def) {
-            $attr = $def['attr'];
-            if (! $this->opacBooksShareSameAttribute($fullBooks, $attr)) {
-                continue;
-            }
-            $raw = $rep->getAttribute($attr);
-            if ($raw instanceof \DateTimeInterface) {
-                $raw = $raw->format('Y-m-d H:i:s');
-            }
-            if (! filled($raw)) {
-                continue;
-            }
-            $rows[] = ['label' => $def['label'], 'value' => (string) $raw];
-        }
-
-        if ($this->opacProgramsShareSame($fullBooks) && $rep->programs->isNotEmpty()) {
-            $value = $rep->programs->sortBy('program_name')->pluck('program_name')->filter()->implode(', ');
-            if (filled($value)) {
-                $rows[] = ['label' => '996 ‡f (Program)', 'value' => $value];
-            }
-        }
-
-        if ($this->opacBooksShareSameAttribute($fullBooks, 'availability') && filled($rep->availability)) {
-            $rows[] = ['label' => 'Status:', 'value' => (string) $rep->availability];
-        }
-
-        return $rows;
-    }
-
-    /**
-     * @param  \Illuminate\Support\Collection<int, Book>  $books
-     */
-    protected function opacBooksShareSameAttribute($books, string $attribute): bool
-    {
-        if ($books->isEmpty()) {
-            return false;
-        }
-
-        $normalize = static function ($value): string {
-            if ($value === null) {
-                return "\0null";
-            }
-            if ($value === '') {
-                return "\0empty";
-            }
-            if ($value instanceof \DateTimeInterface) {
-                return $value->format('c');
-            }
-            if (is_bool($value)) {
-                return $value ? '1' : '0';
-            }
-
-            return (string) $value;
-        };
-
-        $firstVal = $normalize($books->first()->getAttribute($attribute));
-
-        foreach ($books as $b) {
-            if ($normalize($b->getAttribute($attribute)) !== $firstVal) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * @param  \Illuminate\Support\Collection<int, Book>  $books
-     */
-    protected function opacProgramsShareSame($books): bool
-    {
-        $books->loadMissing('programs');
-        $signatures = $books->map(function (Book $b) {
-            return $b->programs->pluck('id')->sort()->values()->implode(',');
-        })->unique();
-
-        return $signatures->count() === 1;
+        return $this->marcDisplay->opacRowsForGroupedTitle($rep, $fullBooks);
     }
 
     public function viewCopiesStaff(Request $request)
@@ -984,74 +922,91 @@ class BookController extends Controller
     {
         $this->normalizeProgramIdsOnRequest($request);
 
+        $multipleCopies = $request->boolean('multiple_copies');
+
         $request->validate([
+            'multiple_copies' => 'nullable|boolean',
+            'copies' => $multipleCopies ? 'required|array|min:1' : 'nullable|array',
+            'copies.*.accession_no' => 'nullable|string|max:255',
+            'copies.*.rfid' => 'nullable|string|max:255',
             'program_ids' => 'nullable|array',
             'program_ids.*' => 'integer|exists:programs,id',
             'year' => 'nullable|string|max:255',
             'course' => 'nullable|string|max:255',
+            'curriculum' => 'nullable|string|in:'.implode(',', array_keys(config('catalog.curriculum_options', []))),
             'cover_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
             'external_cover_url' => 'nullable|string|max:2048',
             'catalog_source' => 'nullable|string|in:openlibrary,googlebooks',
         ]);
 
+        if ($multipleCopies) {
+            $this->validateCopyRows($request);
+        }
+
         $framework = $this->booksFramework();
         $marc = $this->extractMarcPayload($request);
+        if ($multipleCopies) {
+            $marc = $this->stripCopyIdentifiersFromMarc($marc);
+        }
 
         try {
-            $book = DB::transaction(function () use ($request, $framework, $marc) {
-                // Handle cover image
-                $coverPath = null;
-                if ($request->hasFile('cover_image')) {
-                    $coverPath = $request->file('cover_image')->store('covers', 'public');
-                    \File::copy(
-                        storage_path('app/public/' . $coverPath),
-                        public_path('storage/' . $coverPath)
-                    );
-                } elseif ($request->filled('external_cover_url')) {
-                    $url = trim((string) $request->input('external_cover_url'));
-                    if ($url !== '' && filter_var($url, FILTER_VALIDATE_URL)) {
-                        try {
-                            $resp = Http::timeout(25)->get($url);
-                            if ($resp->successful() && strlen($resp->body()) > 0) {
-                                $ext = strtolower((string) pathinfo(parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION));
-                                if (! in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) {
-                                    $ext = 'jpg';
-                                }
-                                $coverPath = 'covers/ol_'.Str::random(12).'.'.$ext;
-                                Storage::disk('public')->put($coverPath, $resp->body());
-                                \File::copy(
-                                    storage_path('app/public/'.$coverPath),
-                                    public_path('storage/'.$coverPath)
-                                );
-                            }
-                        } catch (\Throwable $e) {
-                            \Log::warning('external_cover_url download failed: '.$e->getMessage());
-                        }
-                    }
-                }
+            $result = DB::transaction(function () use ($request, $framework, $marc, $multipleCopies) {
+                $coverPath = $this->resolveCoverPathOnStore($request);
 
-                $book = Book::create([
+                $shared = [
                     'availability' => 'Available',
                     'year' => $request->year,
                     'course' => $request->course,
+                    'curriculum' => $request->curriculum,
                     'cover_image' => $coverPath,
-                ]);
+                ];
 
-                $this->saveMarcFieldsForBook($book, $framework, $marc);
+                if (! $multipleCopies) {
+                    $book = Book::create($shared);
+                    $this->saveMarcFieldsForBook($book, $framework, $marc);
+                    $this->assertCopyUniqueOnBook($book);
 
-                if ($book->barcode && Book::withTrashed()->where('barcode', $book->barcode)->where('id', '!=', $book->id)->exists()) {
-                    throw ValidationException::withMessages(['marc.876.p' => ['Barcode must be unique.']]);
+                    if (! empty($request->program_ids)) {
+                        $book->programs()->attach($request->program_ids);
+                    }
+
+                    return ['book' => $book, 'count' => 1];
                 }
-                if ($book->rfid && Book::withTrashed()->where('rfid', $book->rfid)->where('id', '!=', $book->id)->exists()) {
-                    throw ValidationException::withMessages(['marc.999.r' => ['RFID must be unique.']]);
+
+                $created = [];
+                foreach ($request->input('copies', []) as $copy) {
+                    if (! is_array($copy)) {
+                        continue;
+                    }
+                    $acc = trim((string) ($copy['accession_no'] ?? ''));
+                    $rfid = trim((string) ($copy['rfid'] ?? ''));
+                    if ($acc === '' && $rfid === '') {
+                        continue;
+                    }
+
+                    $book = Book::create($shared);
+                    $copyMarc = $this->applyCopyIdentifiersToMarc($marc, $copy);
+                    $this->saveMarcFieldsForBook($book, $framework, $copyMarc);
+                    $this->assertCopyUniqueOnBook($book);
+
+                    if (! empty($request->program_ids)) {
+                        $book->programs()->attach($request->program_ids);
+                    }
+
+                    $created[] = $book;
                 }
 
-                if (! empty($request->program_ids)) {
-                    $book->programs()->attach($request->program_ids);
+                if (count($created) === 0) {
+                    throw ValidationException::withMessages([
+                        'copies' => ['Add at least one copy with an accession number and/or RFID.'],
+                    ]);
                 }
 
-                return $book;
+                return ['book' => $created[0], 'count' => count($created)];
             });
+
+            $book = $result['book'];
+            $copyCount = $result['count'];
         } catch (ValidationException $e) {
             throw $e;
         } catch (\Throwable $e) {
@@ -1065,21 +1020,70 @@ class BookController extends Controller
         if (in_array($request->input('catalog_source'), ['openlibrary', 'googlebooks'], true)) {
             $returnIsbn = $book->isbn ?: $request->input('openlibrary_return_isbn');
             if ($returnIsbn) {
+                $msg = $copyCount > 1
+                    ? "{$copyCount} copies saved successfully."
+                    : 'Book saved successfully.';
+
                 return redirect()
                     ->route('catalog.copy.openlibrary.search', ['isbn' => $returnIsbn])
-                    ->with('success', 'Book saved successfully.');
+                    ->with('success', $msg);
             }
         }
 
-        return redirect()->route('book.index')->with('success', 'Book added successfully!');
+        $msg = $copyCount > 1
+            ? "{$copyCount} copies added successfully!"
+            : 'Book added successfully!';
+
+        return redirect()->route('book.index')->with('success', $msg);
+    }
+
+    protected function resolveCoverPathOnStore(Request $request): ?string
+    {
+        if ($request->hasFile('cover_image')) {
+            $coverPath = $request->file('cover_image')->store('covers', 'public');
+            \File::copy(
+                storage_path('app/public/'.$coverPath),
+                public_path('storage/'.$coverPath)
+            );
+
+            return $coverPath;
+        }
+
+        if ($request->filled('external_cover_url')) {
+            $url = trim((string) $request->input('external_cover_url'));
+            if ($url !== '' && filter_var($url, FILTER_VALIDATE_URL)) {
+                try {
+                    $resp = Http::timeout(25)->get($url);
+                    if ($resp->successful() && strlen($resp->body()) > 0) {
+                        $ext = strtolower((string) pathinfo(parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION));
+                        if (! in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) {
+                            $ext = 'jpg';
+                        }
+                        $coverPath = 'covers/ol_'.Str::random(12).'.'.$ext;
+                        Storage::disk('public')->put($coverPath, $resp->body());
+                        \File::copy(
+                            storage_path('app/public/'.$coverPath),
+                            public_path('storage/'.$coverPath)
+                        );
+
+                        return $coverPath;
+                    }
+                } catch (\Throwable $e) {
+                    \Log::warning('external_cover_url download failed: '.$e->getMessage());
+                }
+            }
+        }
+
+        return null;
     }
 
 
     public function show($id)
     {
-        $book = Book::with('programs')->findOrFail($id);
+        $book = Book::with(['programs', 'marcFields'])->findOrFail($id);
+        $marcDetailSections = $this->marcDisplay->detailSectionsForBook($book);
 
-        return view('books.show', compact('book'));
+        return view('books.show', compact('book', 'marcDetailSections'));
     }
 
     public function edit($id)
@@ -1103,6 +1107,7 @@ class BookController extends Controller
         $request->validate([
             'year' => 'nullable|string|max:255',
             'course' => 'nullable|string|max:255',
+            'curriculum' => 'nullable|string|in:'.implode(',', array_keys(config('catalog.curriculum_options', []))),
             // ❌ remove single program validation (we use many-to-many now)
             // 'program' => 'nullable|string|max:255',
             'program_ids' => 'nullable|array',
@@ -1110,7 +1115,7 @@ class BookController extends Controller
             'cover_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
         ]);
 
-        $data = $request->only(['year', 'course']);
+        $data = $request->only(['year', 'course', 'curriculum']);
 
         if ($request->hasFile('cover_image')) {
             $coverPath = $request->file('cover_image')->store('covers', 'public');

@@ -31,6 +31,7 @@ use App\Http\Controllers\FineClearanceController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\OpenLibraryCopyCatalogController;
 use App\Http\Controllers\CatalogFrameworkAdminController;
+use App\Http\Controllers\CatalogMarcSelectOptionsController;
 use App\Http\Controllers\EmployeeIdCardController;
 use Carbon\Carbon;
 use App\Models\Book;
@@ -137,7 +138,7 @@ Route::middleware(['auth', 'can:isAdminOrStaff'])->group(function () {
     
     Route::get('/patron-suggestions', [BookLogController::class, 'patronSuggestions'])->name('patron.suggestions');
     Route::get('/book-suggestions', [BookLogController::class, 'bookSuggestions'])->name('book.suggestions');
-    
+    Route::get('/book-title-log-suggestions', [BookLogController::class, 'bookTitleLogSuggestions'])->name('book.title.log.suggestions');
     Route::get('/catalog/copy/openlibrary', [OpenLibraryCopyCatalogController::class, 'searchForm'])
     ->name('catalog.copy.openlibrary.form');
     
@@ -288,5 +289,12 @@ Route::middleware(['auth', 'can:isAdmin'])->group(function () {
         Route::post('/{catalog_framework}/marc-fields', [CatalogFrameworkAdminController::class, 'storeMarcField'])->name('marc_fields.store');
         Route::delete('/{catalog_framework}/fields/{field}', [CatalogFrameworkAdminController::class, 'detachField'])->name('fields.detach');
     });
+
+    Route::get('/admin/catalog-select-options', [CatalogMarcSelectOptionsController::class, 'index'])
+        ->name('admin.catalog_select_options.index');
+    Route::post('/admin/catalog-select-options', [CatalogMarcSelectOptionsController::class, 'store'])
+        ->name('admin.catalog_select_options.store');
+    Route::delete('/admin/catalog-select-options', [CatalogMarcSelectOptionsController::class, 'destroy'])
+        ->name('admin.catalog_select_options.destroy');
 
 });

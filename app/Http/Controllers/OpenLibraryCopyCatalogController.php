@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CatalogFramework;
 use App\Models\Program;
+use App\Services\BookMarcDisplay;
 use Illuminate\Http\Request;
 use App\Services\GoogleBooksService;
 use App\Services\OpenLibraryService;
@@ -17,19 +17,18 @@ class OpenLibraryCopyCatalogController extends Controller
 
     protected GoogleBooksService $googleBooks;
 
-    public function __construct(OpenLibraryService $openLibrary, GoogleBooksService $googleBooks)
-    {
+    public function __construct(
+        OpenLibraryService $openLibrary,
+        GoogleBooksService $googleBooks,
+        protected BookMarcDisplay $marcDisplay,
+    ) {
         $this->openLibrary = $openLibrary;
         $this->googleBooks = $googleBooks;
     }
 
-    protected function booksFramework(): ?CatalogFramework
+    protected function booksFramework()
     {
-        return CatalogFramework::where('name', 'Books')
-            ->with(['fields' => function ($q) {
-                $q->where('visible', true)->orderBy('sort_order')->with('marcField');
-            }])
-            ->first();
+        return $this->marcDisplay->booksFramework();
     }
 
     /**

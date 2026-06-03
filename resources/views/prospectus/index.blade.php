@@ -92,7 +92,7 @@
                                     </div>
                                 </li>
                                 @empty
-                                <li class="text-gray-500">No subjects yet.</li>
+                                <li class="text-gray-500">No courses yet.</li>
                                 @endforelse
                             </ul>
 
@@ -101,9 +101,9 @@
                                 class="add-course-form grid grid-cols-1 md:grid-cols-3 gap-2"
                                 data-year="{{ $year->id }}">
                                 @csrf
-                                <input type="text" name="course_code" placeholder="Subject Code" class="border px-2 py-1"
+                                <input type="text" name="course_code" placeholder="Course Code" class="border px-2 py-1"
                                     required>
-                                <input type="text" name="course_name" placeholder="Subject Name"
+                                <input type="text" name="course_name" placeholder="Course Name"
                                     class="border px-2 py-1 md:col-span-1" required>
                                 <button type="submit" class="bg-green-600 text-white px-3 py-1 rounded">
                                     <span class="btn-text">Add</span>
@@ -150,11 +150,11 @@
                 @csrf
                 @method('PUT')
                 <div class="mb-3">
-                    <label class="block text-sm font-medium">Subject Code</label>
+                    <label class="block text-sm font-medium">Course Code</label>
                     <input type="text" id="editCourseCode" name="course_code" class="border px-3 py-2 w-full" required>
                 </div>
                 <div class="mb-3">
-                    <label class="block text-sm font-medium">Subject Name</label>
+                    <label class="block text-sm font-medium">Course Name</label>
                     <input type="text" id="editCourseName" name="course_name" class="border px-3 py-2 w-full" required>
                 </div>
                 <div class="flex justify-end gap-2">

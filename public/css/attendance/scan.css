@@ -32,14 +32,14 @@ body {
     .header .system-title {
       font-size: 35px;
       font-weight: bold;
-      color: var(--brand-nav-link, #22333b);
+      color: var(--brand-nav-link, #1f4ea7);
       text-transform: uppercase;
       letter-spacing: 2px;
       font-family: 'Poppins', sans-serif;
     }
 
     .footer1{
-      background: var(--brand-nav-link, #22333b);
+      background: var(--brand-nav-link, #1f4ea7);
       padding: 10px 20px;
       display: flex;
       align-items: center;
@@ -83,7 +83,7 @@ body {
             display: inline-block;
             margin: 20px;
             padding: 10px 20px;
-            background-color: var(--brand-button-bg, #22333b);
+            background-color: var(--brand-button-bg, #1f4ea7);
             color: var(--brand-button-text, #ffffff);
             transition: color 0.3s, transform 0.3s;
             text-decoration: none;
@@ -91,7 +91,7 @@ body {
     }
 
     .home-button:hover {
-            background-color: var(--brand-nav-link-active, #ffb845);
+            background-color: var(--brand-nav-link-active, #2e7d32);
             color: var(--brand-button-hover-text, #ffffff);
     }
 
@@ -102,7 +102,7 @@ body {
 
     .sidebar {
       width: 350px;
-      background: var(--brand-nav-link, #22333b);
+      background: var(--brand-nav-link, #1f4ea7);
       color: var(--brand-button-text, #ffffff);
       padding: 20px;
       display: flex;

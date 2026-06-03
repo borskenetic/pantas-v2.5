@@ -10,13 +10,13 @@
   /*
    * App-wide branding tokens (staff + kiosk)
    */
-  --brand-page-bg: #ffffff;
+  --brand-page-bg: #1f4ea7;
   --brand-school-name-color: red;
 
   --brand-nav-link: #1f4ea7;
-  --brand-nav-link-active: #ffffff;
-  --brand-nav-hover-bg: #ffffff;
-  --brand-nav-hover-text: #2e7d32;
+  --brand-nav-link-active: #1f4ea7;
+  --brand-nav-hover-bg: #2e7d32;
+  --brand-nav-hover-text: #ffffff;
 
   --brand-logout-bg: #1f4ea7;
   --brand-logout-text: #ffffff;
@@ -36,8 +36,8 @@
 
   --brand-footer-bg: #1f4ea7;
 
-  --brand-kiosk-gradient-from: #1f4ea7;
-  --brand-kiosk-gradient-to: #2e7d32;
+  --brand-kiosk-gradient-from: #f8f9fa;
+  --brand-kiosk-gradient-to: #e9ecef;
 
   /*
    * Backwards-compatible vars used by your existing landing `style.css`

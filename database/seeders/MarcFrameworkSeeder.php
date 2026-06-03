@@ -18,7 +18,7 @@ class MarcFrameworkSeeder extends Seeder
         $defs = [
             // Control / fixed fields
             ['tag' => '001', 'subfield' => null, 'label' => 'Control No.', 'book_column' => 'control_no'],
-            ['tag' => '005', 'subfield' => null, 'label' => 'Date & Time Stamp', 'book_column' => 'date_time_stamp'],
+            ['tag' => '005', 'subfield' => null, 'label' => 'Date & Time Stamp', 'input_type' => 'datetime', 'book_column' => 'date_time_stamp'],
             ['tag' => '008', 'subfield' => null, 'label' => 'Fixed-Length Data / Form', 'input_type' => 'select', 'options' => ['Printed', 'Electronic', 'CD', 'Maps'], 'book_column' => 'fixed_length_data'],
 
             // ISBN/price
@@ -51,8 +51,12 @@ class MarcFrameworkSeeder extends Seeder
             ['tag' => '336', 'subfield' => 'a', 'label' => 'Content Type', 'input_type' => 'select',
                 'options' => ['Manual', 'Journal', 'Magazine', 'Yearbook', 'Almanac', 'Gazetteer', 'Dictionary'],
                 'book_column' => 'content_type'],
-            ['tag' => '337', 'subfield' => 'a', 'label' => 'Media Type', 'book_column' => 'media_type'],
-            ['tag' => '338', 'subfield' => 'a', 'label' => 'Carrier Type', 'book_column' => 'carrier_type'],
+            ['tag' => '337', 'subfield' => 'a', 'label' => 'Media Type', 'input_type' => 'select',
+                'options' => ['Unmediated', 'Audio', 'Computer', 'Microform', 'Video', 'Other'],
+                'book_column' => 'media_type'],
+            ['tag' => '338', 'subfield' => 'a', 'label' => 'Carrier Type', 'input_type' => 'select',
+                'options' => ['Volume', 'Online resource', 'Audio disc', 'CD-ROM', 'Sheet', 'Object'],
+                'book_column' => 'carrier_type'],
 
             // Series/notes
             ['tag' => '490', 'subfield' => 'a', 'label' => 'Series Title', 'book_column' => 'series_title'],
@@ -82,7 +86,7 @@ class MarcFrameworkSeeder extends Seeder
 
         $order = 0;
         foreach ($defs as $d) {
-            $marc = MarcField::firstOrCreate(
+            $marc = MarcField::updateOrCreate(
                 ['tag' => $d['tag'], 'subfield' => $d['subfield'] ?? null],
                 [
                     'label' => $d['label'] ?? null,

@@ -15,14 +15,21 @@ class RFIDScanController extends Controller
 
     public function scan(Request $request)
     {
+        $code = trim((string) ($request->input('copy_identifier') ?: $request->input('rfid')));
+
         $request->validate([
-            'rfid' => 'required|exists:books,rfid',
+            'copy_identifier' => 'nullable|string|max:255',
+            'rfid' => 'nullable|string|max:255',
         ]);
 
-        $book = Book::where('rfid', $request->rfid)->first();
+        if ($code === '') {
+            return response()->json(['error' => 'No copy code provided.'], 422);
+        }
 
-        if (!$book) {
-            return response()->json(['error' => 'Book not found.'], 404);
+        $book = Book::findByCopyIdentifier($code);
+
+        if (! $book) {
+            return response()->json(['error' => 'No copy found for that accession, barcode, or RFID.'], 404);
         }
 
         // Check the last status of the book

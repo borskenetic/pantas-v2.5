@@ -17,7 +17,7 @@
             <div class="opac-search-header-inner">
                 <div class="opac-search-brand">
                     <img class="opac-search-logo" src="{{ asset('images/d.png') }}" alt="Library logo">
-                    <div class="opac-search-title">Area51 Information Technology Sevices</div>
+                    <div class="opac-search-title">Governor Generoso College of Arts, Sciences and Technology</div>
                 </div>
 
                 <form method="GET" action="{{ route('landing') }}" class="opac-search-header-form" aria-label="Search">

@@ -40,7 +40,7 @@
       <div class="logo-title">
         <img src="{{ asset('images/pantasLogo.png') }}" alt="Logo">
         <div class="system-title">POWERED BY PANTAS</div>
-        <a href="{{ route('attendance_logs.index') }}" class="home-button" hidden>Home</a>
+        <a href="{{ route('book.index') }}" class="home-button" hidden>Home</a>
       </div>
     </div>
   </header>
@@ -107,7 +107,7 @@
       <div class="footer-logo">
         <div class="marquee-container">
           <div class="marquee">
-            Welcome to Area51 Information Technology Services
+            Welcome to Governor Generoso College of Arts, Sciences and Technology
           </div>
         </div>
       </div>

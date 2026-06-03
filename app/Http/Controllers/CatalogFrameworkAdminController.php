@@ -114,7 +114,7 @@ class CatalogFrameworkAdminController extends Controller
             'tag' => ['required', 'string', 'size:3', 'regex:/^[0-9]{3}$/'],
             'subfield' => ['nullable', 'string', 'size:1'],
             'label' => ['nullable', 'string', 'max:255'],
-            'input_type' => ['required', Rule::in(['text', 'textarea', 'select', 'date'])],
+            'input_type' => ['required', Rule::in(['text', 'textarea', 'select', 'date', 'time', 'datetime'])],
             'repeatable' => ['nullable', 'in:0,1'],
             'options_lines' => ['nullable', 'string', 'max:5000'],
         ]);

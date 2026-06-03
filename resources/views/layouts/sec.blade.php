@@ -104,6 +104,7 @@
                     <a href="{{ route('prospectus.index') }}">Prospectus Manager</a>
                     @can('isAdmin')
                     <a href="{{ route('admin.catalog_frameworks.index') }}" >MARC catalog frameworks</a>
+                    <a href="{{ route('admin.catalog_select_options.index') }}">Catalog dropdown options</a>
                     @endcan
                 </div>
             </div>

@@ -692,4 +692,30 @@
 
 .logs_dropdown:hover .logs_dropdown-content {
     display: block;
-}      
+}
+
+.catalog-multicopy-toggle {
+    border: 1px solid rgba(13, 110, 253, 0.25);
+    background: #f8fafc;
+}
+
+.catalog-copies {
+    margin-top: 1.25rem;
+    background: #f0f7ff;
+}
+
+.catalog-copies__row:last-child {
+    margin-bottom: 0 !important;
+}
+
+.catalog-picker {
+    min-height: 42px;
+}
+
+.catalog-picker--datetime {
+    max-width: 100%;
+}
+
+.marc-field--picker .form-text {
+    font-size: 0.8rem;
+}

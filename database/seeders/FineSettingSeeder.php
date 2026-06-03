@@ -14,11 +14,14 @@ class FineSettingSeeder extends Seeder
      */
     public function run()
     {
-        FineSetting::create([
-            'fine_per_day' => 5.00,
-            'max_fine' => 500.00,
-            'grace_period_days' => 0,
-            'effective_from' => now(),
-        ]);
+        FineSetting::firstOrCreate(
+            ['effective_from' => now()->toDateString()],
+            [
+                'fine_per_day' => 5.00,
+                'max_fine' => 500.00,
+                'grace_period_days' => 0,
+                'effective_from' => now(),
+            ]
+        );
     }
 }

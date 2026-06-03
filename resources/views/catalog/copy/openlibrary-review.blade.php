@@ -77,6 +77,7 @@
             <div class="card-header bg-light fw-semibold py-2">Programs &amp; course</div>
             <div class="card-body">
                 <div class="row g-3">
+                    @include('books.partials.catalog_curriculum_field')
                     <div class="col-12">
                         <label class="form-label">Program (optional)</label>
                         <p class="text-muted small mb-1">If you attach programs, courses load from the Prospectus.</p>
@@ -138,6 +139,7 @@
 </script>
 
 @include('books.partials.catalog_courses_script')
+@include('books.partials.catalog_marc_pickers_script')
 
 <script>
     const programs = @json($programs);

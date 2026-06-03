@@ -9,36 +9,18 @@
     $marcValues = $marcValues ?? [];
     $grouped = $grouped ?? false;
     $tabbed = $tabbed ?? false;
+    $excludeBookColumns = $excludeBookColumns ?? [];
+    $excludeBookColumns = array_flip((array) $excludeBookColumns);
 
-    $groupTitles = [
-        '0' => 'Identification',
-        '1' => 'Authors',
-        '2' => 'Title',
-        '3' => 'Physical',
-        '4' => 'Series',
-        '5' => 'Notes',
-        '6' => 'Subjects',
-        '7' => 'Access',
-        '8' => 'Digital',
-        '9' => 'Local',
-    ];
-
-    $groupTitlesLong = [
-        '0' => 'Identification & codes',
-        '1' => 'Authors & contributors',
-        '2' => 'Title & edition',
-        '3' => 'Physical description',
-        '4' => 'Series',
-        '5' => 'Notes',
-        '6' => 'Subjects & classification',
-        '7' => 'Additional access points',
-        '8' => 'Digital location',
-        '9' => 'Local data',
-    ];
+    $groupTitles = config('marc.group_titles', []);
+    $groupTitlesLong = config('marc.group_titles_long', []);
 
     $fieldsByGroup = [];
     foreach ($frameworkFields as $ff) {
         if (!$ff->marcField) {
+            continue;
+        }
+        if ($ff->book_column && isset($excludeBookColumns[$ff->book_column])) {
             continue;
         }
         $key = substr($ff->marcField->tag, 0, 1);
@@ -51,6 +33,9 @@
 @if (!$grouped)
     <div class="row g-3" id="marcEditor">
         @foreach($frameworkFields as $ff)
+            @if($ff->book_column && isset($excludeBookColumns[$ff->book_column]))
+                @continue
+            @endif
             @include('books.partials.marc_field', ['ff' => $ff, 'marcValues' => $marcValues])
         @endforeach
     </div>
