@@ -38,13 +38,22 @@
                 </div>
             </div>
 
+            <div class="logs_dropdown">
+                <button class="logs_dropdown-button">Data</button>
+                <div class="logs_dropdown-content">
+                    <a href="{{ route('students.index') }}">Student Data</a>
+                    <a href="{{ route('employees.index') }}">Faculty &amp; Staff Data</a>
+                </div>
+            </div>
+
             <a href="{{ route('landing') }}" class="btn2 btn-sm">OPAC</a>
 
             <div class="logs_dropdown">
-                <button class="logs_dropdown-button">Create Account</button>
+                <button class="logs_dropdown-button">Admin</button>
                 <div class="logs_dropdown-content">
-                    <a href="{{ route('users.create') }}">Create Account</a>
-                    <a href="{{ route('users.index') }}">View Users</a>
+                    @can('isAdmin')
+                    <a href="{{ route('users.index') }}">View Pantas Users</a>
+                    @endcan
                 </div>
             </div>
 

@@ -1,131 +1,121 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Registered Faculty</title>
-    <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+@extends('layouts.sec')
+
+@section('styles')
     <link rel="stylesheet" href="{{ asset('css/students/students.css') }}">
-</head>
-<body>
+@endsection
 
-<!-- Header with Left Logo and Right Logout Button -->
-<div class="d-flex align-items-center px-4 py-2 flex-wrap" style="background-color: white; position: relative;">
-    <img src="{{ asset('images/pantasLogo.png') }}" alt="New Logo" class="header-logo-img" />
-    <h1 class="school-name mb-0 ms-2"></h1>
-
-    <button id="customMenuToggle" class="d-md-none toggle-btn">&#9776;</button>
-
-    <div id="routeWrapper" class="d-flex gap-2 flex-wrap ms-auto responsive-nav">
-        <button id="customMenuClose" class="d-md-none close-btn">&times;</button>
-
-        <a href="{{ route('book.index') }}" class="btn0 btn-sm">Home</a>
-        <a class="btn2 btn-sm" href="{{ route('attendance.scan') }}">Attendance</a>
-        <a class="btn2 btn-sm" href="{{ route('attendance_logs.index') }}">Attendance-logs</a>
-        <a href="{{ route('students.report') }}" class="btn2 btn-sm">ID Generation</a>
-        <a href="{{ route('files.index') }}" class="btn4 btn-sm" hidden>Repository</a>
-        <form action="{{ route('logout') }}" method="POST" class="mb-0">
-            @csrf
-            <button type="submit" class="btn5">Logout</button>
-        </form>
-    </div>
-</div>
-
-<!-- ✅ JavaScript Toggle Functions -->
-<script>
-    const toggleBtn = document.getElementById('customMenuToggle');
-    const closeBtn = document.getElementById('customMenuClose');
-    const routeWrapper = document.getElementById('routeWrapper');
-    toggleBtn.addEventListener('click', () => routeWrapper.classList.add('open'));
-    closeBtn.addEventListener('click', () => routeWrapper.classList.remove('open'));
-    window.addEventListener('resize', () => {
-        if (window.innerWidth >= 768) routeWrapper.classList.remove('open');
-    });
-</script>
-
+@section('content')
 <div class="container mt-5">
     <div class="card">
         <div class="card-header text-center">
-            <h4>Registered Faculty</h4>
+            <h4 class="mb-0">Registered Faculty &amp; Staff</h4>
         </div>
-
         <div class="card-body">
+
             @if(session('success'))
                 <div class="alert alert-success">{{ session('success') }}</div>
             @endif
+            @if(session('error'))
+                <div class="alert alert-danger">{{ session('error') }}</div>
+            @endif
 
-            <!-- Search + Buttons -->
-            <div class="mb-3">
-                <div class="d-flex mb-2" style="max-width: 350px;">
-                    <form action="{{ route('employees.index') }}" method="GET" class="d-flex w-100">
-                        <input type="text" name="search" class="form-control form-control-sm" placeholder="Search faculty..." value="{{ request('search') }}">
-                        <button type="submit" class="btn btn-primary btn-sm ms-2">Search</button>
-                    </form>
+            <form action="{{ route('employees.index') }}" method="GET" class="row g-2 mb-3">
+                <div class="col-md-4">
+                    <input type="text" name="search" class="form-control form-control-sm"
+                           placeholder="Search name, ID, designation…" value="{{ request('search') }}">
                 </div>
+                <div class="col-md-4">
+                    <select name="program" class="form-select form-select-sm">
+                        <option value="">All programs</option>
+                        @foreach ($programs as $program)
+                            <option value="{{ $program->program_code }}" @selected(request('program') === $program->program_code)>
+                                {{ $program->program_name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select name="year_start_work" class="form-select form-select-sm">
+                        <option value="">All start years</option>
+                        @foreach ($workStartYears as $yr)
+                            <option value="{{ $yr }}" @selected(request('year_start_work') == (string) $yr)>{{ $yr }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-1">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">Filter</button>
+                </div>
+            </form>
 
-                <div class="d-flex align-items-center justify-content-between">
-                    <a href="" class="btn btn-add">+ Register Faculty</a>
-                    <a href="{{ route('pending.index') }}" class="btn btn-warning">View Pending Registrations</a>
-                </div>
-                
-                <div class="mb-3 text-center">
-                    <a href="{{ route('students.index') }}" class="btn btn-outline-primary btn-sm ">Students</a>
-                    <a href="{{ route('employees.index') }}" class="btn btn-outline-primary btn-sm active">Faculty</a>
-                </div>
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <a href="{{ route('employees.create') }}" class="btn btn-add">+ Register Patron</a>
+                <a href="{{ route('pending.employees') }}" class="btn btn-warning">View Pending Registrations</a>
+                <a href="{{ route('patron.register') }}" class="btn btn-outline-secondary btn-sm" target="_blank">Public registration form</a>
             </div>
 
-            <!-- Faculty Table -->
+            <div class="mb-3 text-center">
+                <a href="{{ route('students.index') }}" class="btn btn-outline-primary btn-sm">Students</a>
+                <a href="{{ route('employees.index') }}" class="btn btn-outline-primary btn-sm active">Faculty &amp; Staff</a>
+            </div>
+
             <div class="table-responsive">
                 <table class="table table-bordered table-hover text-center align-middle">
                     <thead>
                         <tr>
-                            <th>Profile</th>
+                            <th>Photo</th>
                             <th>Name</th>
-                            <th>Department</th>
-                            <th>Position</th>
-                            <th>QR Code</th>
+                            <th>ID Number</th>
+                            <th>Designation</th>
+                            <th>Program</th>
+                            <th>Start year</th>
+                            <th>QR</th>
                             <th>Actions</th>
-                            <th>Generate ID</th> <!-- ✅ Added column -->
+                            <th>ID card</th>
                         </tr>
                     </thead>
-
                     <tbody>
-                        @forelse($faculty as $employee)
+                        @forelse ($faculty as $employee)
+                            @php
+                                $programLabel = $programs->firstWhere('program_code', $employee->program)?->program_name
+                                    ?? $employee->program
+                                    ?? $employee->department;
+                            @endphp
                             <tr>
                                 <td>
-                                    @if($employee->formal_picture)
-                                        <img src="{{ asset($employee->formal_picture) }}" width="80" class="rounded">
+                                    @if ($employee->formal_picture)
+                                        <img src="{{ asset($employee->formal_picture) }}" width="64" height="64" class="rounded object-fit-cover" alt="">
                                     @else
-                                        No Image
+                                        <span class="text-muted small">—</span>
                                     @endif
                                 </td>
-                                <td>{{ $employee->firstname }} {{ $employee->lastname }}</td>
-                                <td>{{ $employee->department }}</td>
-                                <td>{{ $employee->position }}</td>
-                                <td>{{ $employee->qrcode }}</td>
-
+                                <td>
+                                    {{ $employee->firstname }}
+                                    {{ $employee->middle_initial ? $employee->middle_initial.'. ' : '' }}
+                                    {{ $employee->lastname }}
+                                </td>
+                                <td>{{ $employee->employee_id }}</td>
+                                <td>{{ $employee->designation ?? $employee->position }}</td>
+                                <td>{{ $programLabel }}</td>
+                                <td>{{ $employee->year_start_work ?? '—' }}</td>
+                                <td><code class="small">{{ $employee->qrcode }}</code></td>
                                 <td>
                                     <div class="dropdown">
-                                        <button class="btn btn-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                                            Options
-                                        </button>
+                                        <button class="btn btn-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">Options</button>
                                         <ul class="dropdown-menu">
                                             <li><a class="dropdown-item" href="{{ route('employees.edit', $employee->id) }}">Edit</a></li>
                                             <li>
-                                                <form action="{{ route('employees.destroy', $employee->id) }}" method="POST" onsubmit="return confirm('Are you sure?');">
+                                                <form action="{{ route('employees.destroy', $employee->id) }}" method="POST" onsubmit="return confirm('Delete this record?');">
                                                     @csrf
                                                     @method('DELETE')
-                                                    <button class="dropdown-item" type="submit">Delete</button>
+                                                    <button type="submit" class="dropdown-item text-danger">Delete</button>
                                                 </form>
                                             </li>
                                         </ul>
                                     </div>
                                 </td>
-
-                                <!-- ✅ New Generate ID dropdown -->
                                 <td>
                                     <div class="dropdown">
-                                        <button class="btn btn-success btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                                            Generate
-                                        </button>
+                                        <button class="btn btn-success btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">Generate</button>
                                         <ul class="dropdown-menu">
                                             <li><a class="dropdown-item" href="{{ route('employees.id.front', $employee->id) }}" target="_blank">Front</a></li>
                                             <li><a class="dropdown-item" href="{{ route('employees.id.back', $employee->id) }}" target="_blank">Back</a></li>
@@ -135,21 +125,16 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="7">No faculty found.</td></tr>
+                            <tr><td colspan="9" class="text-muted">No faculty or staff registered yet.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
-                <div class="d-flex justify-content-center mt-3">
-                    {{ $faculty->withQueryString()->links('pagination::bootstrap-5') }}
-                </div>
             </div>
 
-            <a href="{{ route('book.index') }}" class="btn btn-back mt-3">← Back to Books</a>
+            <div class="d-flex justify-content-center">
+                {{ $faculty->links('pagination::bootstrap-5') }}
+            </div>
         </div>
     </div>
 </div>
-
-<script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
-
-</body>
-</html>
+@endsection

@@ -2,160 +2,159 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\PendingEmployee;
-use Illuminate\Support\Facades\DB;
 use App\Models\Employee;
+use App\Models\PendingEmployee;
+use App\Models\Program;
 use App\Models\Role;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Storage;
 
 class PendingEmployeeController extends Controller
 {
     public function create()
     {
         $roles = Role::all();
-        return view('pending.register', compact('roles'));
+        $programs = Program::orderBy('program_name')->get();
+        $workStartYears = range((int) date('Y'), 1980);
+
+        return view('pending.register', compact('roles', 'programs', 'workStartYears'));
     }
 
     public function index()
     {
         $pending = PendingEmployee::with('role')->latest()->get();
+
         return view('pending.index', compact('pending'));
     }
 
     public function store(Request $request)
     {
-
-        // Validation
         $validated = $request->validate([
             'firstname' => 'required|string|max:255',
-            'lastname'  => 'required|string|max:255',
-            'department' => 'required|string|max:255',
-            'position' => 'nullable|string|max:255',
+            'lastname' => 'required|string|max:255',
+            'middle_initial' => 'nullable|string|max:16',
             'employee_id' => 'required|string|max:255|unique:pending_employees,employee_id',
+            'designation' => 'required|string|max:255',
+            'program' => 'required|string|max:64',
+            'year_start_work' => 'required|string|max:16',
             'birth_date' => 'nullable|date',
-            'sex' => 'nullable|string|max:20',
-            'civil_status' => 'nullable|string|max:50',
-            'blood_type' => 'nullable|string|max:5',
-            'tin_id_number' => 'nullable|string|max:255',
-            'philhealth_number' => 'nullable|string|max:255',
-            'sss_number' => 'nullable|string|max:255',
-            'hdmf_number' => 'nullable|string|max:255',
+            'mobile_number' => 'nullable|string|max:32',
+            'address' => 'nullable|string',
             'emergency_contact_name' => 'nullable|string|max:255',
             'emergency_contact_relationship' => 'nullable|string|max:255',
             'emergency_contact_number' => 'nullable|string|max:255',
-            'address' => 'nullable|string',
+            'emergency_address' => 'nullable|string',
             'formal_picture' => 'nullable|image|mimes:jpg,jpeg,png|max:4096',
             'employee_signature' => 'nullable|string',
         ]);
-    
-        // Set role_id = 2 (Faculty)
+
+        $program = Program::where('program_code', $validated['program'])->first();
+
         $validated['role_id'] = 2;
-    
-        // Handle profile picture upload
+        $validated['department'] = $program?->program_name ?? $validated['program'];
+        $validated['position'] = $validated['designation'];
+
         if ($request->hasFile('formal_picture')) {
             $file = $request->file('formal_picture');
-            $filename = time() . '_profile_' . preg_replace('/\s+/', '_', $file->getClientOriginalName());
-            $file->move(base_path('images/formal_pictures'), $filename);
-            $validated['formal_picture'] = 'images/formal_pictures/' . $filename;
-        }
-    
-        // Handle signature from base64
-        if (!empty($validated['employee_signature']) && str_starts_with($validated['employee_signature'], 'data:')) {
-            $data = $validated['employee_signature'];
-            [$meta, $contents] = explode(',', $data, 2);
-            $ext = 'png';
-            if (preg_match('/data:image\/(jpeg|jpg)/i', $meta)) $ext = 'jpg';
-            $sigName = time() . '_sig.' . $ext;
-    
-            if (!file_exists(base_path('images/signatures'))) {
-                mkdir(base_path('images/signatures'), 0755, true);
+            $filename = time().'_profile_'.preg_replace('/\s+/', '_', $file->getClientOriginalName());
+            $dest = public_path('images/formal_pictures');
+            if (! is_dir($dest)) {
+                mkdir($dest, 0755, true);
             }
-    
-            file_put_contents(base_path('images/signatures/' . $sigName), base64_decode($contents));
-            $validated['employee_signature'] = 'images/signatures/' . $sigName;
+            $file->move($dest, $filename);
+            $validated['formal_picture'] = 'images/formal_pictures/'.$filename;
         }
-    
-        // Auto-generate QR code
-        $last = PendingEmployee::orderBy('id', 'desc')->first();
+
+        if (! empty($validated['employee_signature']) && str_starts_with($validated['employee_signature'], 'data:')) {
+            [$meta, $contents] = explode(',', $validated['employee_signature'], 2);
+            $ext = preg_match('/data:image\/(jpeg|jpg)/i', $meta) ? 'jpg' : 'png';
+            $sigName = time().'_sig.'.$ext;
+            $sigDest = public_path('images/signatures');
+            if (! is_dir($sigDest)) {
+                mkdir($sigDest, 0755, true);
+            }
+            file_put_contents($sigDest.DIRECTORY_SEPARATOR.$sigName, base64_decode($contents));
+            $validated['employee_signature'] = 'images/signatures/'.$sigName;
+        }
+
+        $last = PendingEmployee::orderByDesc('id')->first();
         $nextNumber = 1;
-        if ($last && !empty($last->qrcode) && str_starts_with($last->qrcode, 'E-')) {
-            $lastNum = (int) Str::after($last->qrcode, 'E-');
-            $nextNumber = $lastNum + 1;
+        if ($last && ! empty($last->qrcode) && str_starts_with($last->qrcode, 'E-')) {
+            $nextNumber = (int) Str::after($last->qrcode, 'E-') + 1;
         }
-        $validated['qrcode'] = 'E-' . str_pad($nextNumber, 8, '0', STR_PAD_LEFT);
-    
-        // Save
+        $validated['qrcode'] = 'E-'.str_pad((string) $nextNumber, 8, '0', STR_PAD_LEFT);
+
         PendingEmployee::create($validated);
-    
-        return redirect()->back()->with('success', 'Employee registration submitted! Await admin approval.');
+
+        return redirect()
+            ->route('patron.register')
+            ->with('success', 'Faculty & staff registration submitted. Please wait for library approval.');
     }
-    
+
     public function approve($id)
     {
         DB::beginTransaction();
-    
+
         try {
             $pending = PendingEmployee::findOrFail($id);
-    
-            // Generate next QR code for employee (E-00000001 style)
-            $lastEmployee = Employee::orderBy('id', 'desc')->first();
-            $lastQr = $lastEmployee ? $lastEmployee->qrcode : null;
+
+            $lastEmployee = Employee::orderByDesc('id')->first();
+            $lastQr = $lastEmployee?->qrcode;
             $nextNumber = 1;
-    
+
             if ($lastQr && str_starts_with($lastQr, 'E-')) {
-                $lastNum = intval(substr($lastQr, 2));
-                $nextNumber = $lastNum + 1;
+                $nextNumber = (int) substr($lastQr, 2) + 1;
             }
-    
-            $newQr = 'E-' . str_pad($nextNumber, 8, '0', STR_PAD_LEFT);
-    
-            // Role ID for Faculty (you said role_id = 2)
-            $rid = 2;
-    
-            // Insert into real employees table
+
+            $newQr = 'E-'.str_pad((string) $nextNumber, 8, '0', STR_PAD_LEFT);
+
             Employee::create([
-                'employee_id'   => $pending->employee_id, // unique ID from pending table
-                'formal_picture'=> $pending->formal_picture,
-                'department'    => $pending->department,
-                'firstname'     => $pending->firstname,
-                'lastname'      => $pending->lastname,
-                'position'      => $pending->position,
-                'birth_date'    => $pending->birth_date ?? null,
-                'sex'           => $pending->sex ?? null,
-                'tin_id_number' => $pending->tin_id_number ?? null,
-                'philhealth_number' => $pending->philhealth_number ?? null,
-                'civil_status'  => $pending->civil_status ?? null,
-                'blood_type'    => $pending->blood_type ?? null,
-                'sss_number'    => $pending->sss_number ?? null,
-                'hdmf_number'   => $pending->hdmf_number ?? null,
-                'qrcode'        => $newQr,
-                'emergency_contact_name' => $pending->emergency_contact_name ?? null,
-                'emergency_contact_relationship' => $pending->emergency_contact_relationship ?? null,
-                'address'       => $pending->address ?? null,
-                'emergency_contact_number' => $pending->emergency_contact_number ?? null,
-                'employee_signature' => $pending->employee_signature ?? null,
-                'role_id'       => $rid,
+                'employee_id' => $pending->employee_id,
+                'formal_picture' => $pending->formal_picture,
+                'department' => $pending->department,
+                'firstname' => $pending->firstname,
+                'lastname' => $pending->lastname,
+                'middle_initial' => $pending->middle_initial,
+                'position' => $pending->position,
+                'designation' => $pending->designation ?? $pending->position,
+                'program' => $pending->program,
+                'year_start_work' => $pending->year_start_work,
+                'birth_date' => $pending->birth_date,
+                'mobile_number' => $pending->mobile_number,
+                'sex' => $pending->sex,
+                'tin_id_number' => $pending->tin_id_number,
+                'philhealth_number' => $pending->philhealth_number,
+                'civil_status' => $pending->civil_status,
+                'blood_type' => $pending->blood_type,
+                'sss_number' => $pending->sss_number,
+                'hdmf_number' => $pending->hdmf_number,
+                'qrcode' => $newQr,
+                'emergency_contact_name' => $pending->emergency_contact_name,
+                'emergency_contact_relationship' => $pending->emergency_contact_relationship,
+                'address' => $pending->address,
+                'emergency_contact_number' => $pending->emergency_contact_number,
+                'emergency_address' => $pending->emergency_address,
+                'employee_signature' => $pending->employee_signature,
+                'role_id' => 2,
             ]);
-            // Delete pending record after approval
+
             $pending->delete();
-    
+
             DB::commit();
-            return back()->with('success', 'Employee approved and added to the employees table.');
+
+            return back()->with('success', 'Faculty & staff approved and added to the directory.');
         } catch (\Throwable $e) {
             DB::rollBack();
-            return back()->with('error', 'Error: ' . $e->getMessage());
+
+            return back()->with('error', 'Error: '.$e->getMessage());
         }
     }
-    
+
     public function reject($id)
     {
-        $pending = PendingEmployee::findOrFail($id);
-        $pending->delete();
-    
-        return back()->with('success', 'Employee registration rejected.');
+        PendingEmployee::findOrFail($id)->delete();
+
+        return back()->with('success', 'Registration rejected.');
     }
-
-
 }

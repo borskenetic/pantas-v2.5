@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             MarcFrameworkSeeder::class,
             ProspectusSeeder::class,
+            EmployeeSampleSeeder::class,
             StudentSampleSeeder::class,
             BookSampleSeeder::class,
         ]);

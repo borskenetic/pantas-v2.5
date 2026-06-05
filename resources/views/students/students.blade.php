@@ -95,7 +95,7 @@
 
                 <div class="mb-3 text-center">
                     <a href="{{ route('students.index') }}" id="rs" class="btn btn-outline-primary btn-sm active">Students</a>
-                    <a href="{{ route('employees.index') }}" class="btn btn-outline-primary btn-sm" hidden>Faculty</a>
+                    <a href="{{ route('employees.index') }}" class="btn btn-outline-primary btn-sm">Faculty &amp; Staff</a>
                 </div>
 
 

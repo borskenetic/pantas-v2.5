@@ -63,6 +63,7 @@ Route::get('/rooms/{id}/show', [RoomReservationController::class, 'show'])->name
 Route::get('/register', [PendingStudentController::class, 'create'])->name('patron.register');
 Route::post('/register', [PendingStudentController::class, 'store'])->name('pending.store');
 Route::post('/register-employee', [PendingEmployeeController::class, 'store'])->name('pendingEmployee.store');
+Route::redirect('/patrons/register', '/register');
 // Feedback Form (User-facing)
 Route::get('/feedback', [FeedbackController::class, 'create'])->name('feedback.create');
 Route::post('/feedback', [FeedbackController::class, 'store'])->name('feedback.store'); 
@@ -241,11 +242,12 @@ Route::middleware(['auth', 'can:isAdmin'])->group(function () {
     Route::post('/pending/employees/reject/{id}', [PendingEmployeeController::class, 'reject'])->name('employees.reject');
     
     Route::prefix('employees')->group(function () {
-        Route::get('/', [EmployeeController::class, 'index'])->name('employees.index'); // List faculty
-        Route::get('/edit/{id}', [EmployeeController::class, 'edit'])->name('employees.edit'); // Edit faculty
-        Route::put('/update/{id}', [EmployeeController::class, 'update'])->name('employees.update'); // Update faculty
-        Route::delete('/delete/{id}', [EmployeeController::class, 'destroy'])->name('employees.destroy'); // Delete faculty
-
+        Route::get('/', [EmployeeController::class, 'index'])->name('employees.index');
+        Route::get('/create', [EmployeeController::class, 'create'])->name('employees.create');
+        Route::post('/', [EmployeeController::class, 'store'])->name('employees.store');
+        Route::get('/edit/{id}', [EmployeeController::class, 'edit'])->name('employees.edit');
+        Route::put('/update/{id}', [EmployeeController::class, 'update'])->name('employees.update');
+        Route::delete('/delete/{id}', [EmployeeController::class, 'destroy'])->name('employees.destroy');
     });
     Route::prefix('employees/idcard')->group(function () {
         Route::get('/front/{id}', [EmployeeIdCardController::class, 'front'])->name('employees.id.front');

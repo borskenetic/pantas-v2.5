@@ -28,10 +28,22 @@
             @if(session('success'))
                 <div class="alert alert-success">{{ session('success') }}</div>
             @endif
+            @if(session('error'))
+                <div class="alert alert-danger">{{ session('error') }}</div>
+            @endif
+            @if ($errors->any())
+                <div class="alert alert-danger">
+                    <ul class="mb-0">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
 
             <div class="text-center mb-4">
-                <button type="button" class="btn btn-outline-primary me-2" id="btnStudent">Student</button>
-                <button type="button" class="btn btn-outline-success" id="btnEmployee" hidden>Employee</button>
+                <button type="button" class="btn btn-primary me-2" id="btnStudent">Student</button>
+                <button type="button" class="btn btn-outline-success" id="btnEmployee">Faculty &amp; Staff</button>
             </div>
 
             {{-- STUDENT FORM --}}
@@ -133,85 +145,107 @@
             </form>
 
 
-            {{-- EMPLOYEE FORM --}}
+            {{-- FACULTY & STAFF FORM --}}
             <form id="employeeForm" method="POST" action="{{ route('pendingEmployee.store') }}" enctype="multipart/form-data" class="hidden">
                 @csrf
-                <h5 class="mb-3">Employee Information</h5>
+                <h5 class="mb-3">Faculty &amp; Staff Information</h5>
 
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <input type="text" name="firstname" class="form-control" placeholder="First Name"  >
+                        <label class="form-label">First Name</label>
+                        <input type="text" name="firstname" class="form-control" value="{{ old('firstname') }}" required>
                     </div>
                     <div class="col-md-6">
-                        <input type="text" name="lastname" class="form-control" placeholder="Last Name"  >
+                        <label class="form-label">Last Name</label>
+                        <input type="text" name="lastname" class="form-control" value="{{ old('lastname') }}" required>
                     </div>
                     <div class="col-md-6">
-                        <input type="text" name="department" class="form-control" placeholder="Department"  >
+                        <label class="form-label">Middle Initial</label>
+                        <input type="text" name="middle_initial" class="form-control" maxlength="16" value="{{ old('middle_initial') }}">
                     </div>
                     <div class="col-md-6">
-                        <input type="text" name="position" class="form-control" placeholder="Position"  >
+                        <label class="form-label">ID Number</label>
+                        <input type="text" name="employee_id" class="form-control" value="{{ old('employee_id') }}" required>
                     </div>
                     <div class="col-md-6">
-                        <input type="text" name="employee_id" class="form-control" placeholder="Employee ID"  >
+                        <label class="form-label">Designation</label>
+                        <input type="text" name="designation" class="form-control" placeholder="e.g. Instructor I, Librarian"
+                               value="{{ old('designation') }}" required>
                     </div>
                     <div class="col-md-6">
-                        <input type="date" name="birth_date" class="form-control" placeholder="Birth Date"  >
-                    </div>
-                    <div class="col-md-6">
-                        <select name="sex" class="form-select"  >
-                            <option value="">Select Sex</option>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                            <option value="Other">Other</option>
+                        <label class="form-label">Select Program</label>
+                        <select name="program" class="form-select" required>
+                            <option value="">— Select program —</option>
+                            @foreach ($programs as $program)
+                                <option value="{{ $program->program_code }}" @selected(old('program') === $program->program_code)>
+                                    {{ $program->program_name }}
+                                </option>
+                            @endforeach
                         </select>
                     </div>
                     <div class="col-md-6">
-                        <input type="text" name="tin_id_number" class="form-control" placeholder="TIN ID Number">
+                        <label class="form-label">Year of start of work in this HEI</label>
+                        <select name="year_start_work" class="form-select" required>
+                            <option value="">— Select year —</option>
+                            @foreach ($workStartYears as $yr)
+                                <option value="{{ $yr }}" @selected(old('year_start_work') == (string) $yr)>{{ $yr }}</option>
+                            @endforeach
+                        </select>
                     </div>
                     <div class="col-md-6">
-                        <input type="text" name="philhealth_number" class="form-control" placeholder="PhilHealth Number">
+                        <label class="form-label">Birthday</label>
+                        <input type="date" name="birth_date" class="form-control" value="{{ old('birth_date') }}">
                     </div>
                     <div class="col-md-6">
-                        <input type="text" name="sss_number" class="form-control" placeholder="SSS Number">
-                    </div>
-                    <div class="col-md-6">
-                        <input type="text" name="hdmf_number" class="form-control" placeholder="HDMF Number">
-                    </div>
-                    <div class="col-md-6">
-                        <input type="text" name="blood_type" class="form-control" placeholder="Blood Type">
-                    </div>
-                    <div class="col-md-6">
-                        <input type="text" name="civil_status" class="form-control" placeholder="Civil Status">
-                    </div>
-                    <div class="col-md-6">
-                        <input type="text" name="emergency_contact_name" class="form-control" placeholder="Emergency Contact Name"  >
-                    </div>
-                    <div class="col-md-6">
-                        <input type="text" name="emergency_contact_relationship" class="form-control" placeholder="Relationship"  >
-                    </div>
-                    <div class="col-md-6">
-                        <input type="text" name="emergency_contact_number" class="form-control" placeholder="Contact Number"  >
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Formal Picture</label>
-                        <input type="file" name="formal_picture" class="form-control" accept=".jpg,.jpeg,.png">
-                    </div>
-                    <div class="col-md-12">
-                        <label class="form-label">Address</label>
-                        <textarea name="address" class="form-control" rows="2" placeholder="Home Address"></textarea>
+                        <label class="form-label">Mobile Number</label>
+                        <input type="text" name="mobile_number" class="form-control" placeholder="09XXXXXXXXX"
+                               value="{{ old('mobile_number') }}">
                     </div>
                     <div class="col-12">
-                        <label class="form-label">Signature (draw below)</label>
+                        <label class="form-label">Address</label>
+                        <textarea name="address" class="form-control" rows="2">{{ old('address') }}</textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Formal picture (optional)</label>
+                        <input type="file" name="formal_picture" class="form-control" accept=".jpg,.jpeg,.png">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Signature (optional)</label>
                         <canvas id="employeeSignaturePad"></canvas>
                         <input type="hidden" name="employee_signature" id="employeeSignatureInput">
                         <button type="button" id="clearEmployeeSignature" class="btn btn-sm btn-outline-danger mt-2">Clear</button>
                     </div>
                 </div>
 
+                <hr class="my-3">
+                <h6 class="mb-3">Emergency Contact Information</h6>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <input type="text" name="emergency_contact_name" class="form-control" placeholder="Contact person"
+                               value="{{ old('emergency_contact_name') }}">
+                    </div>
+                    <div class="col-md-6">
+                        <input type="text" name="emergency_contact_relationship" class="form-control" placeholder="Relationship"
+                               value="{{ old('emergency_contact_relationship') }}">
+                    </div>
+                    <div class="col-md-6">
+                        <input type="text" name="emergency_contact_number" class="form-control" placeholder="Contact number"
+                               value="{{ old('emergency_contact_number') }}">
+                    </div>
+                    <div class="col-md-6">
+                        <input type="text" name="emergency_address" class="form-control" placeholder="Emergency address"
+                               value="{{ old('emergency_address') }}">
+                    </div>
+                </div>
+
                 <div class="d-grid mt-4">
-                    <button type="submit" class="btn btn-success">Submit Employee Registration</button>
+                    <button type="submit" class="btn btn-success">Submit Faculty &amp; Staff Registration</button>
                 </div>
             </form>
+
+            <div class="text-center mt-3">
+                <a href="{{ url('/') }}" class="btn btn-outline-secondary btn-sm">Back to home</a>
+            </div>
         </div>
     </div>
 </div>
@@ -324,17 +358,23 @@ const employeePad = setupSignaturePad('employeeSignaturePad', 'employeeSignature
 const studentForm = document.getElementById('studentForm');
 const employeeForm = document.getElementById('employeeForm');
 
-document.getElementById('btnStudent').addEventListener('click', () => {
-    studentForm.classList.remove('hidden');
-    employeeForm.classList.add('hidden');
-    setTimeout(() => studentPad.resize(), 50);
-});
+function showRegisterTab(which) {
+    const isStudent = which === 'student';
+    studentForm.classList.toggle('hidden', !isStudent);
+    employeeForm.classList.toggle('hidden', isStudent);
+    document.getElementById('btnStudent').classList.toggle('btn-primary', isStudent);
+    document.getElementById('btnStudent').classList.toggle('btn-outline-primary', !isStudent);
+    document.getElementById('btnEmployee').classList.toggle('btn-success', !isStudent);
+    document.getElementById('btnEmployee').classList.toggle('btn-outline-success', isStudent);
+    setTimeout(() => (isStudent ? studentPad : employeePad).resize(), 50);
+}
 
-document.getElementById('btnEmployee').addEventListener('click', () => {
-    employeeForm.classList.remove('hidden');
-    studentForm.classList.add('hidden');
-    setTimeout(() => employeePad.resize(), 50);
-});
+document.getElementById('btnStudent').addEventListener('click', () => showRegisterTab('student'));
+document.getElementById('btnEmployee').addEventListener('click', () => showRegisterTab('employee'));
+
+@if ($errors->has('employee_id') || $errors->has('designation') || $errors->has('program') || $errors->has('year_start_work') || old('designation'))
+    showRegisterTab('employee');
+@endif
 </script>
 </body>
 </html>

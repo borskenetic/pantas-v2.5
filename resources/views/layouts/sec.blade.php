@@ -63,22 +63,21 @@
                 <div class="attendance_dropdown-content">
                     <a href="{{ route('attendance.scan') }}">Attendance</a>
                     <a href="{{ route('attendance_logs.index') }}">Attendance Logs</a>
-                    <a href="{{ route('students.report') }}">Student Data</a>
                     <a href="{{ route('attendance.changeVideo') }}">Change Video</a>
                     <a href="{{ route('attendance.feedback.settings') }}">Logout Feedback</a>
                     <a href="{{ route('admin.attendance.feedbacks') }}">View Feedback Responses</a>
                 </div>
             </div>
 
-            <a href="{{ route('landing') }}" class="btn2 btn-sm {{ request()->routeIs('books.landing') ? 'active-btn' : '' }}" >OPAC</a>
-
             <div class="logs_dropdown">
-                <button class="logs_dropdown-button">Create Account</button>
+                <button class="logs_dropdown-button">Data</button>
                 <div class="logs_dropdown-content">
-                    <a href="{{ route('users.create') }}">Create Account</a>
-                    <a href="{{ route('users.index') }}">View Users</a>
+                    <a href="{{ route('students.index') }}">Student Data</a>
+                    <a href="{{ route('employees.index') }}">Faculty &amp; Staff Data</a>
                 </div>
             </div>
+
+            <a href="{{ route('landing') }}" class="btn2 btn-sm {{ request()->routeIs('books.landing') ? 'active-btn' : '' }}" >OPAC</a>
 
             <div class="logs_dropdown" >
                 <button class="logs_dropdown-button">Circulation</button>
@@ -103,6 +102,7 @@
                     <a href="{{ route('files.index') }}">Repository</a>
                     <a href="{{ route('prospectus.index') }}">Prospectus Manager</a>
                     @can('isAdmin')
+                    <a href="{{ route('users.index') }}">View Pantas Users</a>
                     <a href="{{ route('admin.catalog_frameworks.index') }}" >MARC catalog frameworks</a>
                     <a href="{{ route('admin.catalog_select_options.index') }}">Catalog dropdown options</a>
                     @endcan

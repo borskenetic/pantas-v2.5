@@ -25,7 +25,9 @@ class PendingStudentController extends Controller
     {
         $roles = Role::all();
         $programs = Program::orderBy('program_name')->get();
-        return view('pending.register', compact('roles', 'programs'));
+        $workStartYears = range((int) date('Y'), 1980);
+
+        return view('pending.register', compact('roles', 'programs', 'workStartYears'));
     }
 
     public function store(Request $request)

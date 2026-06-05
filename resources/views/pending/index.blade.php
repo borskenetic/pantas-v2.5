@@ -24,7 +24,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <button id="showStudents" class="btn btn-primary me-2">View Students</button>
-            <button id="showEmployees" class="btn btn-outline-primary" hidden>View Employees</button>
+            <button id="showEmployees" class="btn btn-outline-primary">View Employees</button>
         </div>
         <a href="{{ route('students.index') }}" class="btn btn-secondary">
             ← Back to Registered
@@ -91,14 +91,16 @@
 
     <!-- 🧑‍💼 Pending Employees Table -->
     <div id="employeeTable" class="hidden">
-        <h4>Pending Employee Registrations</h4>
+        <h4>Pending Faculty &amp; Staff Registrations</h4>
         <table class="table table-bordered mt-3">
             <thead>
                 <tr>
                     <th>Profile</th>
                     <th>Name</th>
-                    <th>Department</th>
-                    <th>Position</th>
+                    <th>ID</th>
+                    <th>Designation</th>
+                    <th>Program</th>
+                    <th>Start year</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -112,9 +114,11 @@
                                 No Image
                             @endif
                         </td>
-                        <td>{{ $e->firstname }} {{ $e->lastname }}</td>
-                        <td>{{ $e->department }}</td>
-                        <td>{{ $e->position }}</td>
+                        <td>{{ $e->firstname }} {{ $e->middle_initial ? $e->middle_initial.'. ' : '' }}{{ $e->lastname }}</td>
+                        <td>{{ $e->employee_id }}</td>
+                        <td>{{ $e->designation ?? $e->position }}</td>
+                        <td>{{ $e->program ?? $e->department }}</td>
+                        <td>{{ $e->year_start_work ?? '—' }}</td>
                         <td>
                             <form action="{{ route('employees.approve', $e->id) }}" method="POST" style="display:inline">
                                 @csrf
@@ -127,7 +131,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="6">No pending employee registrations</td></tr>
+                    <tr><td colspan="7">No pending faculty &amp; staff registrations</td></tr>
                 @endforelse
             </tbody>
         </table>

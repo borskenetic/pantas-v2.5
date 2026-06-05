@@ -9,6 +9,10 @@ class Employee extends Model
 {
     use HasFactory;
 
+    protected $casts = [
+        'birth_date' => 'date',
+    ];
+
     protected $fillable = [
         'user_id',
         'role_id',
@@ -17,9 +21,14 @@ class Employee extends Model
         'department',
         'firstname',
         'lastname',
+        'middle_initial',
         'position',
+        'designation',
+        'program',
+        'year_start_work',
         'employee_number',
         'birth_date',
+        'mobile_number',
         'sex',
         'tin_id_number',
         'philhealth_number',
@@ -32,6 +41,7 @@ class Employee extends Model
         'emergency_contact_relationship',
         'address',
         'emergency_contact_number',
+        'emergency_address',
         'employee_signature',
     ];
 

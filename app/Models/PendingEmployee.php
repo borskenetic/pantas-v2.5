@@ -11,10 +11,15 @@ class PendingEmployee extends Model
     protected $fillable = [
         'firstname',
         'lastname',
+        'middle_initial',
         'department',
         'position',
+        'designation',
+        'program',
+        'year_start_work',
         'employee_id',
         'birth_date',
+        'mobile_number',
         'employee_number',
         'sex',
         'civil_status',
@@ -29,6 +34,7 @@ class PendingEmployee extends Model
         'emergency_contact_name',
         'emergency_contact_relationship',
         'emergency_contact_number',
+        'emergency_address',
         'address',
         'employee_signature',
     ];

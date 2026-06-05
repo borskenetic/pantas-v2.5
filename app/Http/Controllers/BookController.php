@@ -10,6 +10,7 @@ use App\Models\ProgramCourse;
 use App\Models\BookMarcField;
 use App\Models\CatalogFramework;
 use App\Services\BookMarcDisplay;
+use App\Support\PublicStoragePublisher;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -1040,13 +1041,11 @@ class BookController extends Controller
     protected function resolveCoverPathOnStore(Request $request): ?string
     {
         if ($request->hasFile('cover_image')) {
-            $coverPath = $request->file('cover_image')->store('covers', 'public');
-            \File::copy(
-                storage_path('app/public/'.$coverPath),
-                public_path('storage/'.$coverPath)
-            );
+            Storage::disk('public')->makeDirectory('covers');
 
-            return $coverPath;
+            return PublicStoragePublisher::publish(
+                $request->file('cover_image')->store('covers', 'public')
+            );
         }
 
         if ($request->filled('external_cover_url')) {
@@ -1061,12 +1060,8 @@ class BookController extends Controller
                         }
                         $coverPath = 'covers/ol_'.Str::random(12).'.'.$ext;
                         Storage::disk('public')->put($coverPath, $resp->body());
-                        \File::copy(
-                            storage_path('app/public/'.$coverPath),
-                            public_path('storage/'.$coverPath)
-                        );
 
-                        return $coverPath;
+                        return PublicStoragePublisher::publish($coverPath);
                     }
                 } catch (\Throwable $e) {
                     \Log::warning('external_cover_url download failed: '.$e->getMessage());
@@ -1076,7 +1071,6 @@ class BookController extends Controller
 
         return null;
     }
-
 
     public function show($id)
     {
@@ -1118,14 +1112,10 @@ class BookController extends Controller
         $data = $request->only(['year', 'course', 'curriculum']);
 
         if ($request->hasFile('cover_image')) {
-            $coverPath = $request->file('cover_image')->store('covers', 'public');
-
-            \File::copy(
-                storage_path('app/public/' . $coverPath),
-                public_path('storage/' . $coverPath)
+            Storage::disk('public')->makeDirectory('covers');
+            $data['cover_image'] = PublicStoragePublisher::publish(
+                $request->file('cover_image')->store('covers', 'public')
             );
-
-            $data['cover_image'] = $coverPath;
         }
 
         $book->update($data);
