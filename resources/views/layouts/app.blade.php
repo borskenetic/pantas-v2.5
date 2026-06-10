@@ -62,8 +62,7 @@
             <div class="logs_dropdown">
                 <button class="logs_dropdown-button">Circulation</button>
                 <div class="logs_dropdown-content">
-                    <a href="{{ route('logs.index') }}">Circulation</a>
-                    <a href="{{ route('book.report.download') }}">Download Book Report</a>
+                    @include('layouts.partials.circulation_nav_links')
                     <a href="{{ route('students.report') }}">Student Report</a>
                 </div>
             </div>

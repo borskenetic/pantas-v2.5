@@ -82,16 +82,7 @@
             <div class="logs_dropdown">
                 <button class="logs_dropdown-button">Circulation</button>
                 <div class="logs_dropdown-content">
-                    <a href="{{ route('logs.index') }}">Circulation</a>
-                    @can('isAdmin')
-                    <a href="{{ route('fines.outstanding') }}">Outstanding Fines</a>
-                    @endcan
-                    <a href="{{ route('catalog.copy.openlibrary.form') }}">Copy Cataloging</a>
-                    <a href="{{ route('rfid.scanner') }}" hidden>RFID Scanner</a>
-                    <a href="{{ route('book.report.download') }}">Download Book Report</a>
-                    @can('isAdmin')
-                    <a href="{{ route('fines.edit') }}">Fines and Due Dates</a>
-                    @endcan
+                    @include('layouts.partials.circulation_nav_links')
                 </div>
             </div>
 
