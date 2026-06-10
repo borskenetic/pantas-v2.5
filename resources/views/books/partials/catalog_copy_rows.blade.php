@@ -1,16 +1,26 @@
 @php
-    $copyRows = old('copies', [['accession_no' => '', 'rfid' => '']]);
-    if (! is_array($copyRows) || count($copyRows) === 0) {
+    $copyPanelMode = $copyPanelMode ?? 'create';
+    $copyToggleField = $copyPanelMode === 'edit' ? 'add_copies' : 'multiple_copies';
+    $defaultRows = $copyPanelMode === 'edit' ? [] : [['accession_no' => '', 'rfid' => '']];
+    $copyRows = old('copies', $defaultRows);
+    if (! is_array($copyRows)) {
+        $copyRows = [];
+    }
+    if ($copyPanelMode === 'create' && count($copyRows) === 0) {
         $copyRows = [['accession_no' => '', 'rfid' => '']];
     }
     $marcLabels = collect(config('catalog.copy_unique_marc', []))->keyBy('book_column');
 @endphp
 
-<div id="catalogCopiesPanel" class="catalog-copies card border-primary-subtle {{ old('multiple_copies') ? '' : 'd-none' }}">
+<div id="catalogCopiesPanel" class="catalog-copies card border-primary-subtle {{ old($copyToggleField) ? '' : 'd-none' }}">
     <div class="card-body">
-        <h3 class="h6 mb-1">Copy identifiers</h3>
+        <h3 class="h6 mb-1">{{ $copyPanelMode === 'edit' ? 'Additional copies' : 'Copy identifiers' }}</h3>
         <p class="text-muted small mb-3">
-            Enter one row per physical copy. Bibliographic data above is shared.
+            @if($copyPanelMode === 'edit')
+                Add more physical copies of this title. The record above updates this copy; each new row creates another catalog entry with the same bibliographic data.
+            @else
+                Enter one row per physical copy. Bibliographic data above is shared.
+            @endif
             <strong>Accession no.</strong> is the main copy ID for checkout (required for circulation if no barcode/RFID). RFID is optional.
         </p>
 

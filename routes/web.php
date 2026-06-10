@@ -131,7 +131,8 @@ Route::middleware(['auth', 'can:isAdminOrStaff'])->group(function () {
     // Attendance Scanner and Book Reports (Admin + Staff)
     
     Route::get('/download-book-report', [BookController::class, 'downloadBookReport'])->name('book.report.download');
-    Route::get('/book-report-by-course', [BookController::class, 'bookReportByCourse'])->name('book.report.by.course');
+    Route::get('/reports/library-holdings', [\App\Http\Controllers\LibraryHoldingsReportController::class, 'create'])->name('reports.library_holdings.create');
+    Route::post('/reports/library-holdings', [\App\Http\Controllers\LibraryHoldingsReportController::class, 'download'])->name('reports.library_holdings.download');
     Route::get('/attendance/change-video', [AttendanceController::class, 'showChangeVideo'])->name('attendance.changeVideo');
     Route::post('/attendance/upload-video', [AttendanceController::class, 'uploadVideo'])->name('attendance.uploadVideo');
     Route::get('/attendance/logout-feedback', [AttendanceController::class, 'feedbackSettings'])->name('attendance.feedback.settings');

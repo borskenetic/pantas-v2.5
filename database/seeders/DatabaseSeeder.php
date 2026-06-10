@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             EmployeeSampleSeeder::class,
             StudentSampleSeeder::class,
             BookSampleSeeder::class,
+            LibraryHoldingsReportSampleSeeder::class,
         ]);
 
         User::updateOrCreate(

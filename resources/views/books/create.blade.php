@@ -178,6 +178,6 @@
 @include('books.partials.catalog_tabs_script', ['formId' => 'addBookForm'])
 @include('books.partials.catalog_courses_script')
 @include('books.partials.catalog_programs_script')
-@include('books.partials.catalog_multicopy_script')
+@include('books.partials.catalog_multicopy_script', ['formId' => 'addBookForm'])
 @include('books.partials.catalog_marc_pickers_script')
 @endsection

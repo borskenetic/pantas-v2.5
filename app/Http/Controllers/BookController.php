@@ -272,6 +272,54 @@ class BookController extends Controller
        }
    }
 
+   /**
+    * @param  array<string, array<string, array<int, string>>>  $marc
+    */
+   protected function createAdditionalCopiesFromBook(Book $sourceBook, Request $request, $framework, array $marc): int
+   {
+       $baseMarc = $this->stripCopyIdentifiersFromMarc($marc);
+       $programIds = $sourceBook->load('programs')->programs->pluck('id')->all();
+
+       $shared = [
+           'availability' => 'Available',
+           'year' => $sourceBook->year,
+           'course' => $sourceBook->course,
+           'curriculum' => $sourceBook->curriculum,
+           'cover_image' => $sourceBook->cover_image,
+       ];
+
+       $created = 0;
+       foreach ($request->input('copies', []) as $copy) {
+           if (! is_array($copy)) {
+               continue;
+           }
+           $acc = trim((string) ($copy['accession_no'] ?? ''));
+           $rfid = trim((string) ($copy['rfid'] ?? ''));
+           if ($acc === '' && $rfid === '') {
+               continue;
+           }
+
+           $book = Book::create($shared);
+           $copyMarc = $this->applyCopyIdentifiersToMarc($baseMarc, $copy);
+           $this->saveMarcFieldsForBook($book, $framework, $copyMarc);
+           $this->assertCopyUniqueOnBook($book);
+
+           if ($programIds !== []) {
+               $book->programs()->attach($programIds);
+           }
+
+           $created++;
+       }
+
+       if ($created === 0) {
+           throw ValidationException::withMessages([
+               'copies' => ['Add at least one copy with an accession number and/or RFID.'],
+           ]);
+       }
+
+       return $created;
+   }
+
    protected function assertCopyUniqueOnBook(Book $book): void
    {
        if ($book->barcode && Book::withTrashed()->where('barcode', $book->barcode)->where('id', '!=', $book->id)->exists()) {
@@ -1098,48 +1146,62 @@ class BookController extends Controller
 
         $this->normalizeProgramIdsOnRequest($request);
 
+        $addCopies = $request->boolean('add_copies');
+
         $request->validate([
+            'add_copies' => 'nullable|boolean',
+            'copies' => $addCopies ? 'required|array|min:1' : 'nullable|array',
+            'copies.*.accession_no' => 'nullable|string|max:255',
+            'copies.*.rfid' => 'nullable|string|max:255',
             'year' => 'nullable|string|max:255',
             'course' => 'nullable|string|max:255',
             'curriculum' => 'nullable|string|in:'.implode(',', array_keys(config('catalog.curriculum_options', []))),
-            // ❌ remove single program validation (we use many-to-many now)
-            // 'program' => 'nullable|string|max:255',
             'program_ids' => 'nullable|array',
             'program_ids.*' => 'integer|exists:programs,id',
             'cover_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
         ]);
 
-        $data = $request->only(['year', 'course', 'curriculum']);
-
-        if ($request->hasFile('cover_image')) {
-            Storage::disk('public')->makeDirectory('covers');
-            $data['cover_image'] = PublicStoragePublisher::publish(
-                $request->file('cover_image')->store('covers', 'public')
-            );
+        if ($addCopies) {
+            $this->validateCopyRows($request);
         }
-
-        $book->update($data);
 
         $framework = $this->booksFramework();
         $marc = $this->extractMarcPayload($request);
-        $this->saveMarcFieldsForBook($book, $framework, $marc);
 
-        if ($book->barcode && Book::withTrashed()->where('barcode', $book->barcode)->where('id', '!=', $book->id)->exists()) {
-            throw ValidationException::withMessages(['marc.876.p' => ['Barcode must be unique.']]);
-        }
-        if ($book->rfid && Book::withTrashed()->where('rfid', $book->rfid)->where('id', '!=', $book->id)->exists()) {
-            throw ValidationException::withMessages(['marc.999.r' => ['RFID must be unique.']]);
-        }
+        $addedCopyCount = DB::transaction(function () use ($request, $book, $framework, $marc, $addCopies) {
+            $data = $request->only(['year', 'course', 'curriculum']);
 
-        if (!empty($request->program_ids)) {
-            // Replace existing programs with the new ones
-            $book->programs()->sync($request->program_ids);
-        } else {
-            // No program selected → detach all
-            $book->programs()->detach();
-        }
+            if ($request->hasFile('cover_image')) {
+                Storage::disk('public')->makeDirectory('covers');
+                $data['cover_image'] = PublicStoragePublisher::publish(
+                    $request->file('cover_image')->store('covers', 'public')
+                );
+            }
 
-        return redirect()->route('book.index')->with('success', 'Book updated successfully!');
+            $book->update($data);
+            $this->saveMarcFieldsForBook($book, $framework, $marc);
+            $this->assertCopyUniqueOnBook($book);
+
+            if (! empty($request->program_ids)) {
+                $book->programs()->sync($request->program_ids);
+            } else {
+                $book->programs()->detach();
+            }
+
+            if (! $addCopies) {
+                return 0;
+            }
+
+            $book->refresh();
+
+            return $this->createAdditionalCopiesFromBook($book, $request, $framework, $marc);
+        });
+
+        $message = $addedCopyCount > 0
+            ? "Book updated successfully. {$addedCopyCount} additional ".($addedCopyCount === 1 ? 'copy' : 'copies').' added.'
+            : 'Book updated successfully!';
+
+        return redirect()->route('book.index')->with('success', $message);
     }
 
 
