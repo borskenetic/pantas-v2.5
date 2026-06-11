@@ -34,6 +34,9 @@
     @error('student_id')
         <div class="alert alert-danger">{{ $message }}</div>
     @enderror
+    @error('employee_id')
+        <div class="alert alert-danger">{{ $message }}</div>
+    @enderror
 
     <section class="circulation-card">
         <div class="circulation-card__head">
@@ -57,6 +60,7 @@
                 <div class="col-md-4">
                     <label for="patron_name" class="form-label">Patron</label>
                     <input type="hidden" name="student_id" id="student_id" value="{{ request('student_id') }}">
+                    <input type="hidden" name="employee_id" id="employee_id" value="{{ request('employee_id') }}">
                     <div class="circulation-autocomplete-wrap">
                         <input type="text" id="patron_name" class="form-control circulation-input" autocomplete="off"
                                placeholder="Search name or ID…" value="{{ $prefillPatronLabel ?? '' }}">
@@ -88,6 +92,7 @@
                 <div class="col-md-6 col-lg-4">
                     <label for="filter_patron" class="form-label">Patron</label>
                     <input type="hidden" name="student_id" id="filter_student_id" value="{{ request('student_id') }}">
+                    <input type="hidden" name="employee_id" id="filter_employee_id" value="{{ request('employee_id') }}">
                     <div class="circulation-autocomplete-wrap">
                         <input type="text" name="filter_patron" id="filter_patron" class="form-control circulation-input"
                                value="{{ $prefillPatronLabel ?? '' }}" autocomplete="off"
@@ -360,10 +365,26 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Record form — patron
     const studentIdInput = document.getElementById('student_id');
+    const employeeIdInput = document.getElementById('employee_id');
     const logForm = document.getElementById('logTransactionForm');
+
+    function applyPatronSelection(patron) {
+        if (!patron) return;
+        const isEmployee = patron.type === 'employee';
+        if (studentIdInput) studentIdInput.value = isEmployee ? '' : (patron.id || '');
+        if (employeeIdInput) employeeIdInput.value = isEmployee ? (patron.id || '') : '';
+    }
+
+    function clearPatronSelection() {
+        if (studentIdInput) studentIdInput.value = '';
+        if (employeeIdInput) employeeIdInput.value = '';
+    }
+
     if (logForm) {
         logForm.addEventListener('submit', function (e) {
-            if (!studentIdInput || !String(studentIdInput.value || '').trim()) {
+            const hasStudent = studentIdInput && String(studentIdInput.value || '').trim();
+            const hasEmployee = employeeIdInput && String(employeeIdInput.value || '').trim();
+            if (!hasStudent && !hasEmployee) {
                 e.preventDefault();
                 alert('Select a patron from the suggestions list.');
             }
@@ -376,7 +397,7 @@ document.addEventListener('DOMContentLoaded', function () {
         fetchUrl: patronSuggestUrl,
         onSelect: function (item) {
             document.getElementById('patron_name').value = item.raw.name;
-            studentIdInput.value = item.raw.id;
+            applyPatronSelection(item.raw);
         },
         mapItems: function (data) {
             return (data || []).map(function (p) {
@@ -385,9 +406,7 @@ document.addEventListener('DOMContentLoaded', function () {
         },
     });
 
-    document.getElementById('patron_name')?.addEventListener('input', function () {
-        if (studentIdInput) studentIdInput.value = '';
-    });
+    document.getElementById('patron_name')?.addEventListener('input', clearPatronSelection);
 
     // Record form — copy ID (accession / barcode / RFID)
     wireAutocomplete({
@@ -403,10 +422,13 @@ document.addEventListener('DOMContentLoaded', function () {
             if ((b.availability || '') === 'Borrowed') {
                 if (statusSelect) statusSelect.value = 'checked_in';
                 if (patronInput) patronInput.value = b.last_patron || '';
-                if (studentIdInput) studentIdInput.value = b.last_student_id || '';
+                applyPatronSelection({
+                    type: b.last_employee_id ? 'employee' : 'student',
+                    id: b.last_employee_id || b.last_student_id || '',
+                });
             } else {
                 if (statusSelect) statusSelect.value = 'checked_out';
-                if (studentIdInput) studentIdInput.value = '';
+                clearPatronSelection();
             }
         },
         mapItems: function (data) {
@@ -420,13 +442,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Filter — patron
     const filterStudentId = document.getElementById('filter_student_id');
+    const filterEmployeeId = document.getElementById('filter_employee_id');
     wireAutocomplete({
         input: document.getElementById('filter_patron'),
         list: document.getElementById('filterPatronSuggestions'),
         fetchUrl: patronSuggestUrl,
         onSelect: function (item) {
             document.getElementById('filter_patron').value = item.raw.name;
-            if (filterStudentId) filterStudentId.value = item.raw.id;
+            const isEmployee = item.raw.type === 'employee';
+            if (filterStudentId) filterStudentId.value = isEmployee ? '' : item.raw.id;
+            if (filterEmployeeId) filterEmployeeId.value = isEmployee ? item.raw.id : '';
         },
         mapItems: function (data) {
             return (data || []).map(function (p) {
@@ -437,6 +462,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.getElementById('filter_patron')?.addEventListener('input', function () {
         if (filterStudentId) filterStudentId.value = '';
+        if (filterEmployeeId) filterEmployeeId.value = '';
     });
 
     // Filter — book title

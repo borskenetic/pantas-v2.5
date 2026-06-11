@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Book;
 use App\Models\BookLog;
+use App\Models\Employee;
 use App\Models\FineSetting;
 use App\Models\Student;
 use Carbon\Carbon;
@@ -65,13 +66,14 @@ class BookLogController extends Controller
     /**
      * Cooldown: after returning a book, the same student must wait before borrowing the same book again.
      */
-    protected function enforceReborrowCooldownOrNull(int $studentId, int $bookId): ?string
+    protected function enforceReborrowCooldownOrNull(?int $studentId, ?int $employeeId, int $bookId): ?string
     {
         $latestReturn = BookLog::query()
-            ->where('student_id', $studentId)
             ->where('book_id', $bookId)
             ->where('status', 'Checked In')
             ->whereNotNull('returned_date')
+            ->when($studentId, fn ($q) => $q->where('student_id', $studentId))
+            ->when($employeeId, fn ($q) => $q->where('employee_id', $employeeId))
             ->orderByDesc('returned_date')
             ->value('returned_date');
 
@@ -92,7 +94,7 @@ class BookLogController extends Controller
 
     public function index(Request $request)
     {
-        $logs = BookLog::with(['book', 'student']);
+        $logs = BookLog::with(['book', 'student', 'employee']);
 
         if ($request->filled('student_id')) {
             $student = Student::find($request->student_id);
@@ -101,6 +103,17 @@ class BookLogController extends Controller
                 $legacySpace = trim("{$student->firstname} {$student->lastname}");
                 $logs->where(function ($q) use ($student, $legacyComma, $legacySpace) {
                     $q->where('student_id', $student->id)
+                        ->orWhere('patron_name', $legacyComma)
+                        ->orWhere('patron_name', $legacySpace);
+                });
+            }
+        } elseif ($request->filled('employee_id')) {
+            $employee = Employee::find($request->employee_id);
+            if ($employee) {
+                $legacyComma = "{$employee->lastname}, {$employee->firstname}";
+                $legacySpace = trim("{$employee->firstname} {$employee->lastname}");
+                $logs->where(function ($q) use ($employee, $legacyComma, $legacySpace) {
+                    $q->where('employee_id', $employee->id)
                         ->orWhere('patron_name', $legacyComma)
                         ->orWhere('patron_name', $legacySpace);
                 });
@@ -114,6 +127,15 @@ class BookLogController extends Controller
                             $s->where('firstname', 'like', '%'.$term.'%')
                                 ->orWhere('lastname', 'like', '%'.$term.'%')
                                 ->orWhere('id_number', 'like', '%'.$term.'%')
+                                ->orWhereRaw(
+                                    'LOWER(CONCAT(firstname, \' \', lastname)) LIKE ?',
+                                    ['%'.strtolower($term).'%']
+                                );
+                        })
+                        ->orWhereHas('employee', function ($e) use ($term) {
+                            $e->where('firstname', 'like', '%'.$term.'%')
+                                ->orWhere('lastname', 'like', '%'.$term.'%')
+                                ->orWhere('employee_id', 'like', '%'.$term.'%')
                                 ->orWhereRaw(
                                     'LOWER(CONCAT(firstname, \' \', lastname)) LIKE ?',
                                     ['%'.strtolower($term).'%']
@@ -157,6 +179,11 @@ class BookLogController extends Controller
             if ($ps) {
                 $prefillPatronLabel = $this->patronDisplayLabel($ps);
             }
+        } elseif ($request->filled('employee_id')) {
+            $pe = Employee::find($request->employee_id);
+            if ($pe) {
+                $prefillPatronLabel = $this->employeeDisplayLabel($pe);
+            }
         } elseif ($request->filled('filter_patron')) {
             $prefillPatronLabel = trim((string) $request->filter_patron);
         }
@@ -184,7 +211,8 @@ class BookLogController extends Controller
             'copy_identifier' => 'nullable|string|max:255',
             'rfid' => 'nullable|string|max:255',
             'status' => 'required|string|in:checked_out,room_use,checked_in',
-            'student_id' => 'required|integer|exists:students,id',
+            'student_id' => 'nullable|integer|exists:students,id|required_without:employee_id',
+            'employee_id' => 'nullable|integer|exists:employees,id|required_without:student_id',
         ]);
 
         if ($copyCode === '') {
@@ -200,8 +228,21 @@ class BookLogController extends Controller
             );
         }
 
-        $student = Student::findOrFail($request->student_id);
-        $patronName = "{$student->lastname}, {$student->firstname}";
+        $student = null;
+        $employee = null;
+        $studentId = $request->filled('student_id') ? (int) $request->student_id : null;
+        $employeeId = $request->filled('employee_id') ? (int) $request->employee_id : null;
+
+        if ($employeeId) {
+            $employee = Employee::findOrFail($employeeId);
+            $patronName = "{$employee->lastname}, {$employee->firstname}";
+            if ($employee->middle_initial) {
+                $patronName .= ' '.$employee->middle_initial.'.';
+            }
+        } else {
+            $student = Student::findOrFail($studentId);
+            $patronName = "{$student->lastname}, {$student->firstname}";
+        }
 
         $action = $request->status;
         $isOutbound = in_array($action, ['checked_out', 'room_use'], true);
@@ -218,19 +259,27 @@ class BookLogController extends Controller
             return back()->with('error', 'This book is already checked in.');
         }
 
-        if ($action === 'checked_in' && $lastLog && $lastLog->student_id) {
-            if ((int) $request->student_id !== (int) $lastLog->student_id) {
-                return back()->with('error', 'Patron must match the student who has this book.');
+        if ($action === 'checked_in' && $lastLog) {
+            if ($employeeId && $lastLog->employee_id) {
+                if ($employeeId !== (int) $lastLog->employee_id) {
+                    return back()->with('error', 'Patron must match the faculty/staff member who has this book.');
+                }
+            } elseif ($studentId && $lastLog->student_id) {
+                if ($studentId !== (int) $lastLog->student_id) {
+                    return back()->with('error', 'Patron must match the student who has this book.');
+                }
             }
         }
 
         if ($isOutbound) {
-            $cooldownError = $this->enforceReborrowCooldownOrNull((int) $student->id, (int) $book->id);
+            $cooldownError = $this->enforceReborrowCooldownOrNull($studentId, $employeeId, (int) $book->id);
             if ($cooldownError) {
                 return back()->with('error', $cooldownError);
             }
 
-            $active = BookLog::countActiveLoansForStudent((int) $student->id);
+            $active = $studentId
+                ? BookLog::countActiveLoansForStudent($studentId)
+                : BookLog::countActiveLoansForEmployee($employeeId);
             if ($active >= BookController::MAX_CONCURRENT_BOOK_LOANS_PER_STUDENT) {
                 return back()->with(
                     'error',
@@ -296,7 +345,8 @@ class BookLogController extends Controller
 
         BookLog::create([
             'book_id' => $book->id,
-            'student_id' => $student->id,
+            'student_id' => $studentId,
+            'employee_id' => $employeeId,
             'patron_name' => $patronName,
             'status' => $newStatus,
             'circulation_type' => $circulationType,
@@ -374,6 +424,72 @@ class BookLogController extends Controller
         return $label;
     }
 
+    protected function employeeDisplayLabel(Employee $e): string
+    {
+        $label = "{$e->lastname}, {$e->firstname}";
+        if ($e->middle_initial) {
+            $label .= ' '.$e->middle_initial.'.';
+        }
+        if ($e->employee_id) {
+            $label .= " ({$e->employee_id})";
+        }
+
+        return $label.' · Staff';
+    }
+
+    /**
+     * @return list<array{id: int, type: string, name: string}>
+     */
+    protected function patronSuggestionItems(string $search, int $limit = 10): array
+    {
+        if (trim($search) === '') {
+            return [];
+        }
+
+        $students = Student::query()
+            ->where(function ($q) use ($search) {
+                $q->where('firstname', 'LIKE', "%{$search}%")
+                    ->orWhere('lastname', 'LIKE', "%{$search}%")
+                    ->orWhere('id_number', 'LIKE', "%{$search}%")
+                    ->orWhereRaw(
+                        'LOWER(CONCAT(firstname, \' \', lastname)) LIKE ?',
+                        ['%'.strtolower($search).'%']
+                    );
+            })
+            ->limit($limit)
+            ->get()
+            ->map(fn ($s) => [
+                'id' => $s->id,
+                'type' => 'student',
+                'name' => $this->patronDisplayLabel($s),
+            ]);
+
+        $employees = Employee::query()
+            ->where(function ($q) use ($search) {
+                $q->where('firstname', 'LIKE', "%{$search}%")
+                    ->orWhere('lastname', 'LIKE', "%{$search}%")
+                    ->orWhere('employee_id', 'LIKE', "%{$search}%")
+                    ->orWhere('designation', 'LIKE', "%{$search}%")
+                    ->orWhereRaw(
+                        'LOWER(CONCAT(firstname, \' \', lastname)) LIKE ?',
+                        ['%'.strtolower($search).'%']
+                    );
+            })
+            ->limit($limit)
+            ->get()
+            ->map(fn ($e) => [
+                'id' => $e->id,
+                'type' => 'employee',
+                'name' => $this->employeeDisplayLabel($e),
+            ]);
+
+        return $students->concat($employees)
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->take($limit)
+            ->values()
+            ->all();
+    }
+
     public function bookTitleLogSuggestions(Request $request)
     {
         $search = trim((string) $request->get('query', ''));
@@ -396,25 +512,9 @@ class BookLogController extends Controller
 
     public function patronSuggestions(Request $request)
     {
-        $search = $request->get('query', '');
+        $search = trim((string) $request->get('query', ''));
 
-        $suggestions = Student::where(function ($q) use ($search) {
-            $q->where('firstname', 'LIKE', "%{$search}%")
-                ->orWhere('lastname', 'LIKE', "%{$search}%")
-                ->orWhere('id_number', 'LIKE', "%{$search}%")
-                ->orWhereRaw(
-                    'LOWER(CONCAT(firstname, \' \', lastname)) LIKE ?',
-                    ['%'.strtolower($search).'%']
-                );
-        })
-            ->limit(10)
-            ->get()
-            ->map(fn ($s) => [
-                'id' => $s->id,
-                'name' => $this->patronDisplayLabel($s),
-            ]);
-
-        return response()->json($suggestions);
+        return response()->json($this->patronSuggestionItems($search));
     }
 
     public function bookSuggestions(Request $request)
@@ -433,7 +533,7 @@ class BookLogController extends Controller
 
         return response()->json(
             $books->map(function ($b) {
-                $lastCheckout = BookLog::with('student')
+                $lastCheckout = BookLog::with(['student', 'employee'])
                     ->where('book_id', $b->id)
                     ->where('status', 'Checked Out')
                     ->latest('timestamp')
@@ -450,6 +550,7 @@ class BookLogController extends Controller
                     'copy_identifier_summary' => $b->copyIdentifierSummary(),
                     'availability' => $b->availability,
                     'last_student_id' => $lastCheckout?->student_id,
+                    'last_employee_id' => $lastCheckout?->employee_id,
                     'last_patron' => $lastCheckout ? $lastCheckout->patronLabel() : null,
                     'last_circulation_type' => $lastCheckout?->circulation_type,
                 ];

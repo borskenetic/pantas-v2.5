@@ -20,6 +20,7 @@ class BookLog extends Model
     protected $fillable = [
         'book_id',
         'student_id',
+        'employee_id',
         'patron_name',
         'status',
         'circulation_type',
@@ -79,6 +80,24 @@ class BookLog extends Model
             ->count();
     }
 
+    public static function countActiveLoansForEmployee(int $employeeId): int
+    {
+        $latestIds = DB::table('book_logs')
+            ->selectRaw('MAX(id) as id')
+            ->groupBy('book_id')
+            ->pluck('id');
+
+        if ($latestIds->isEmpty()) {
+            return 0;
+        }
+
+        return (int) static::query()
+            ->whereIn('id', $latestIds)
+            ->where('employee_id', $employeeId)
+            ->where('status', 'Checked Out')
+            ->count();
+    }
+
     public function book()
     {
         return $this->belongsTo(Book::class, 'book_id');
@@ -87,6 +106,11 @@ class BookLog extends Model
     public function student()
     {
         return $this->belongsTo(Student::class, 'student_id');
+    }
+
+    public function employee()
+    {
+        return $this->belongsTo(Employee::class, 'employee_id');
     }
 
     public function clearedBy()
@@ -139,6 +163,18 @@ class BookLog extends Model
             $this->loadMissing('student');
             if ($this->student) {
                 return "{$this->student->lastname}, {$this->student->firstname}";
+            }
+        }
+
+        if ($this->employee_id) {
+            $this->loadMissing('employee');
+            if ($this->employee) {
+                $name = "{$this->employee->lastname}, {$this->employee->firstname}";
+                if ($this->employee->middle_initial) {
+                    $name .= ' '.$this->employee->middle_initial.'.';
+                }
+
+                return $name;
             }
         }
 
