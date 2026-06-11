@@ -7,6 +7,7 @@ use App\Models\BookLog;
 use App\Models\Employee;
 use App\Models\FineSetting;
 use App\Models\Student;
+use App\Support\LoanDueDate;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -195,11 +196,14 @@ class BookLogController extends Controller
             $request->input('rfid', '')
         ));
 
+        $loanDefaultDays = (int) (FineSetting::latest('created_at')->first()?->loan_duration_days ?? 7);
+
         return view('books.logs', compact(
             'logs',
             'prefillPatronLabel',
             'filterBookTitle',
             'prefillCopyIdentifier',
+            'loanDefaultDays',
         ));
     }
 
@@ -213,6 +217,8 @@ class BookLogController extends Controller
             'status' => 'required|string|in:checked_out,room_use,checked_in',
             'student_id' => 'nullable|integer|exists:students,id|required_without:employee_id',
             'employee_id' => 'nullable|integer|exists:employees,id|required_without:student_id',
+            'due_date' => 'nullable|date|after_or_equal:today',
+            'loan_duration_days' => 'nullable|integer|min:1|max:365',
         ]);
 
         if ($copyCode === '') {
@@ -305,8 +311,13 @@ class BookLogController extends Controller
         $fineIncurred = null;
 
         if ($isOutbound && $action === 'checked_out') {
-            $loanDays = $settings->loan_duration_days ?? 7;
-            $dueDate = $this->addBusinessDays(Carbon::now('Asia/Manila'), $loanDays);
+            $loanTerms = LoanDueDate::resolveFromRequest(
+                Carbon::now('Asia/Manila'),
+                $settings,
+                $request->input('due_date'),
+                $request->filled('loan_duration_days') ? (int) $request->loan_duration_days : null,
+            );
+            $dueDate = $loanTerms['due_date'];
         }
 
         if ($action === 'checked_in') {

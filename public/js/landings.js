@@ -327,29 +327,18 @@ function markBorrowedInUi(bookId) {
     }
 }
 
-function confirmCheckout() {
-    const studentId = document.getElementById('studentIdInput').value.trim();
-
-    if (!studentId) {
-        showToast('Please enter your Student ID.', 'error');
-        return;
-    }
-
-    let booksToCheckout = [];
-
-    if (window.cart && window.cart.length > 0) {
-        booksToCheckout = window.cart;
-    } else if (window.selectedBook) {
-        booksToCheckout = [window.selectedBook];
-    } else {
-        showToast('No book selected.', 'error');
-        return;
-    }
-
+function runCheckoutRequest(studentId, booksToCheckout, loanTerms) {
     if (!window.CHECKOUT_URL || !window.CSRF_TOKEN) {
         showToast('Checkout is not configured.', 'error');
         return;
     }
+
+    const payload = {
+        student_id: studentId,
+        books: booksToCheckout
+    };
+    if (loanTerms?.due_date) payload.due_date = loanTerms.due_date;
+    if (loanTerms?.loan_duration_days) payload.loan_duration_days = loanTerms.loan_duration_days;
 
     fetch(window.CHECKOUT_URL, {
         method: 'POST',
@@ -358,10 +347,7 @@ function confirmCheckout() {
             Accept: 'application/json',
             'X-CSRF-TOKEN': window.CSRF_TOKEN
         },
-        body: JSON.stringify({
-            student_id: studentId,
-            books: booksToCheckout
-        })
+        body: JSON.stringify(payload)
     })
         .then((res) => res.json())
         .then((data) => {
@@ -426,6 +412,32 @@ function confirmCheckout() {
             console.error(err);
             showToast('Server error occurred.', 'error');
         });
+}
+
+function confirmCheckout() {
+    const studentId = document.getElementById('studentIdInput').value.trim();
+
+    if (!studentId) {
+        showToast('Please enter your Student ID.', 'error');
+        return;
+    }
+
+    let booksToCheckout = [];
+
+    if (window.cart && window.cart.length > 0) {
+        booksToCheckout = window.cart;
+    } else if (window.selectedBook) {
+        booksToCheckout = [window.selectedBook];
+    } else {
+        showToast('No book selected.', 'error');
+        return;
+    }
+
+    const proceed = typeof promptLoanTerms === 'function'
+        ? promptLoanTerms()
+        : Promise.resolve({});
+
+    proceed.then((loanTerms) => runCheckoutRequest(studentId, booksToCheckout, loanTerms));
 }
 
 /* =========================================

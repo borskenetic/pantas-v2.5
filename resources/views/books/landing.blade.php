@@ -444,15 +444,19 @@
     <div id="toastContainer" class="toast-container"></div>
     </div>
 
+    @include('partials.loan_terms_modal')
+
     <script>
         window.CHECKOUT_URL = "{{ route('checkout.process') }}";
         window.CSRF_TOKEN = "{{ csrf_token() }}";
         window.OPAC_BOOK_DETAIL_BASE = @json(url('/opac/api/book').'/');
+        window.LOAN_DEFAULT_DAYS = @json((int) (optional(\App\Models\FineSetting::latest('created_at')->first())->loan_duration_days ?? 7));
 
         function logout() {
             document.querySelector('header form[action*="logout"]')?.submit();
         }
     </script>
+    <script src="{{ asset('js/loan-terms.js') }}"></script>
     <script src="{{ asset('js/cart.js') }}"></script>
     <script src="{{ asset('js/landings.js') }}"></script>
 </body>

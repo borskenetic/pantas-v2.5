@@ -574,6 +574,17 @@ footer {
     z-index: 999;
 }
 
+#loanTermsModal.modal {
+    z-index: 1100;
+}
+
+#loanTermsModal .modal-content {
+    display: block;
+    flex-direction: column;
+    max-width: 440px;
+    width: 92%;
+}
+
 .modal-content {
     background: white;
     padding: 25px;

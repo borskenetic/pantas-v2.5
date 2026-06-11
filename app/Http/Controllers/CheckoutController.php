@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Book;
 use App\Models\BookLog;
 use App\Models\FineSetting;
-use App\Models\Holiday;
 use App\Models\Student;
+use App\Support\LoanDueDate;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -23,6 +23,8 @@ class CheckoutController extends Controller
                 'book_id' => 'nullable|integer',
                 'books' => 'nullable|array',
                 'books.*.id' => 'required_with:books|integer',
+                'due_date' => 'nullable|date|after_or_equal:today',
+                'loan_duration_days' => 'nullable|integer|min:1|max:365',
             ]);
 
             $student = Student::where('id_number', $request->student_id)->first();
@@ -100,8 +102,14 @@ class CheckoutController extends Controller
                 ]);
             }
 
-            $borrowedAt = Carbon::now();
-            $dueDate = null;
+            $borrowedAt = Carbon::now('Asia/Manila');
+            $loanTerms = LoanDueDate::resolveFromRequest(
+                $borrowedAt,
+                $fineSetting,
+                $request->input('due_date'),
+                $request->filled('loan_duration_days') ? (int) $request->loan_duration_days : null,
+            );
+            $dueDate = $loanTerms['due_date'];
             $processedBooks = [];
 
             foreach ($availableIds as $bookId) {
@@ -127,8 +135,6 @@ class CheckoutController extends Controller
                         continue;
                     }
                 }
-
-                $dueDate = $this->addBusinessDays($borrowedAt, $fineSetting->loan_duration_days);
 
                 BookLog::create([
                     'book_id' => $book->id,
@@ -183,34 +189,13 @@ class CheckoutController extends Controller
         }
     }
 
-    protected function addBusinessDays(Carbon $start, int $days)
-    {
-        $holidays = Holiday::pluck('holiday_date')->map(function ($d) {
-            return Carbon::parse($d)->startOfDay()->toDateString();
-        });
-
-        $date = $start->copy()->startOfDay();
-        $added = 0;
-
-        while ($added < $days) {
-            $date->addDay();
-
-            $isWeekend = $date->isWeekend();
-            $isHoliday = $holidays->contains($date->toDateString());
-
-            if (! $isWeekend && ! $isHoliday) {
-                $added++;
-            }
-        }
-
-        return $date;
-    }
-
     public function bulk(Request $request)
     {
         $request->validate([
             'student_id' => 'required|string',
             'book_ids' => 'required|array',
+            'due_date' => 'nullable|date|after_or_equal:today',
+            'loan_duration_days' => 'nullable|integer|min:1|max:365',
         ]);
 
         $student = Student::where('id_number', $request->student_id)->first();
@@ -264,7 +249,14 @@ class CheckoutController extends Controller
             ]);
         }
 
-        $borrowedAt = Carbon::now();
+        $borrowedAt = Carbon::now('Asia/Manila');
+        $loanTerms = LoanDueDate::resolveFromRequest(
+            $borrowedAt,
+            $fineSetting,
+            $request->input('due_date'),
+            $request->filled('loan_duration_days') ? (int) $request->loan_duration_days : null,
+        );
+        $dueDate = $loanTerms['due_date'];
         $results = [];
 
         foreach ($availableIds as $bookId) {
@@ -290,8 +282,6 @@ class CheckoutController extends Controller
                     continue;
                 }
             }
-
-            $dueDate = $this->addBusinessDays($borrowedAt, $fineSetting->loan_duration_days);
 
             BookLog::create([
                 'book_id' => $book->id,

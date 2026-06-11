@@ -47,6 +47,8 @@
         </div>
         <form action="{{ route('logs.store') }}" method="POST" id="logTransactionForm" class="circulation-card__body">
             @csrf
+            <input type="hidden" name="due_date" id="loan_due_date" value="">
+            <input type="hidden" name="loan_duration_days" id="loan_duration_days" value="">
             <div class="row g-3">
                 <div class="col-md-4">
                     <label for="copy_identifier_input" class="form-label">Copy ID</label>
@@ -286,9 +288,16 @@
     </div>
 </div>
 @endif
+
+@include('partials.loan_terms_modal', ['loanDefaultDays' => $loanDefaultDays ?? 7])
+
 @endsection
 
 @section('scripts')
+<script>
+    window.LOAN_DEFAULT_DAYS = @json($loanDefaultDays ?? 7);
+</script>
+<script src="{{ asset('js/loan-terms.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const patronSuggestUrl = @json(route('patron.suggestions'));
@@ -380,6 +389,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (employeeIdInput) employeeIdInput.value = '';
     }
 
+    let loanTermsConfirmed = false;
+
     if (logForm) {
         logForm.addEventListener('submit', function (e) {
             const hasStudent = studentIdInput && String(studentIdInput.value || '').trim();
@@ -387,7 +398,32 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!hasStudent && !hasEmployee) {
                 e.preventDefault();
                 alert('Select a patron from the suggestions list.');
+                return;
             }
+
+            const status = document.getElementById('status_select')?.value;
+            if (status === 'checked_out' && !loanTermsConfirmed) {
+                e.preventDefault();
+                if (typeof promptLoanTerms !== 'function') {
+                    logForm.submit();
+                    return;
+                }
+                promptLoanTerms().then(function (terms) {
+                    const dueField = document.getElementById('loan_due_date');
+                    const daysField = document.getElementById('loan_duration_days');
+                    if (dueField) dueField.value = terms.due_date || '';
+                    if (daysField) daysField.value = terms.loan_duration_days || '';
+                    loanTermsConfirmed = true;
+                    if (typeof logForm.requestSubmit === 'function') {
+                        logForm.requestSubmit();
+                    } else {
+                        logForm.submit();
+                    }
+                });
+                return;
+            }
+
+            loanTermsConfirmed = false;
         });
     }
 
