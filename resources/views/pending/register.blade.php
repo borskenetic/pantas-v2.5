@@ -60,7 +60,7 @@
                     </div>
             
                     <div class="col-md-6">
-                        <input type="text" name="middle_initial" class="form-control" placeholder="Middle Initial">
+                        @include('partials.middle_initial_input', ['value' => old('middle_initial')])
                     </div>
             
                     <div class="col-md-6">
@@ -161,7 +161,7 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Middle Initial</label>
-                        <input type="text" name="middle_initial" class="form-control" maxlength="16" value="{{ old('middle_initial') }}">
+                        @include('partials.middle_initial_input', ['value' => old('middle_initial')])
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">ID Number</label>

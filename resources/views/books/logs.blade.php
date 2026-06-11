@@ -45,20 +45,23 @@
         <form action="{{ route('logs.store') }}" method="POST" id="logTransactionForm" class="circulation-card__body">
             @csrf
             <div class="row g-3">
-                <div class="col-md-4 position-relative">
+                <div class="col-md-4">
                     <label for="copy_identifier_input" class="form-label">Copy ID</label>
-                    <input type="text" class="form-control circulation-input" name="copy_identifier" id="copy_identifier_input"
-                           value="{{ $prefillCopyIdentifier ?? request('copy_identifier', request('rfid')) }}"
-                           placeholder="Accession, barcode, or RFID" autocomplete="off" required>
-                    <p class="form-text text-muted small mb-0">Each physical copy should have a unique accession no. (949). RFID is optional.</p>
-                    <ul id="bookSuggestions" class="circulation-suggest list-group"></ul>
+                    <div class="circulation-autocomplete-wrap">
+                        <input type="text" class="form-control circulation-input" name="copy_identifier" id="copy_identifier_input"
+                               value="{{ $prefillCopyIdentifier ?? request('copy_identifier', request('rfid')) }}"
+                               placeholder="Accession, barcode, or RFID" autocomplete="off" required>
+                        <ul id="bookSuggestions" class="circulation-suggest list-group"></ul>
+                    </div>
                 </div>
-                <div class="col-md-4 position-relative">
+                <div class="col-md-4">
                     <label for="patron_name" class="form-label">Patron</label>
                     <input type="hidden" name="student_id" id="student_id" value="{{ request('student_id') }}">
-                    <input type="text" id="patron_name" class="form-control circulation-input" autocomplete="off"
-                           placeholder="Search name or ID…" value="{{ $prefillPatronLabel ?? '' }}">
-                    <ul id="patronSuggestions" class="circulation-suggest list-group"></ul>
+                    <div class="circulation-autocomplete-wrap">
+                        <input type="text" id="patron_name" class="form-control circulation-input" autocomplete="off"
+                               placeholder="Search name or ID…" value="{{ $prefillPatronLabel ?? '' }}">
+                        <ul id="patronSuggestions" class="circulation-suggest list-group"></ul>
+                    </div>
                 </div>
                 <div class="col-md-4">
                     <label for="status_select" class="form-label">Circulation</label>
@@ -82,20 +85,24 @@
         </div>
         <form method="GET" action="{{ route('logs.index') }}" id="logFilterForm" class="circulation-card__body">
             <div class="row g-3">
-                <div class="col-md-6 col-lg-4 position-relative">
+                <div class="col-md-6 col-lg-4">
                     <label for="filter_patron" class="form-label">Patron</label>
                     <input type="hidden" name="student_id" id="filter_student_id" value="{{ request('student_id') }}">
-                    <input type="text" name="filter_patron" id="filter_patron" class="form-control circulation-input"
-                           value="{{ $prefillPatronLabel ?? '' }}" autocomplete="off"
-                           placeholder="Search patron name or ID…">
-                    <ul id="filterPatronSuggestions" class="circulation-suggest list-group"></ul>
+                    <div class="circulation-autocomplete-wrap">
+                        <input type="text" name="filter_patron" id="filter_patron" class="form-control circulation-input"
+                               value="{{ $prefillPatronLabel ?? '' }}" autocomplete="off"
+                               placeholder="Search patron name or ID…">
+                        <ul id="filterPatronSuggestions" class="circulation-suggest list-group"></ul>
+                    </div>
                 </div>
-                <div class="col-md-6 col-lg-4 position-relative">
+                <div class="col-md-6 col-lg-4">
                     <label for="filter_book_title" class="form-label">Book title</label>
-                    <input type="text" name="book_title" id="filter_book_title" class="form-control circulation-input"
-                           value="{{ $filterBookTitle ?? '' }}" autocomplete="off"
-                           placeholder="Search book title…">
-                    <ul id="filterBookTitleSuggestions" class="circulation-suggest list-group"></ul>
+                    <div class="circulation-autocomplete-wrap">
+                        <input type="text" name="book_title" id="filter_book_title" class="form-control circulation-input"
+                               value="{{ $filterBookTitle ?? '' }}" autocomplete="off"
+                               placeholder="Search book title…">
+                        <ul id="filterBookTitleSuggestions" class="circulation-suggest list-group"></ul>
+                    </div>
                 </div>
                 <div class="col-md-6 col-lg-2">
                     <label for="start_date" class="form-label">From</label>

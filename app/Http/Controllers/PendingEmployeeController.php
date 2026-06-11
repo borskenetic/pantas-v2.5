@@ -6,6 +6,7 @@ use App\Models\Employee;
 use App\Models\PendingEmployee;
 use App\Models\Program;
 use App\Models\Role;
+use App\Support\MiddleInitial;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -30,10 +31,12 @@ class PendingEmployeeController extends Controller
 
     public function store(Request $request)
     {
+        MiddleInitial::mergeIntoRequest($request);
+
         $validated = $request->validate([
             'firstname' => 'required|string|max:255',
             'lastname' => 'required|string|max:255',
-            'middle_initial' => 'nullable|string|max:16',
+            'middle_initial' => MiddleInitial::validationRule(),
             'employee_id' => 'required|string|max:255|unique:pending_employees,employee_id',
             'designation' => 'required|string|max:255',
             'program' => 'required|string|max:64',
@@ -115,7 +118,7 @@ class PendingEmployeeController extends Controller
                 'department' => $pending->department,
                 'firstname' => $pending->firstname,
                 'lastname' => $pending->lastname,
-                'middle_initial' => $pending->middle_initial,
+                'middle_initial' => MiddleInitial::normalize($pending->middle_initial),
                 'position' => $pending->position,
                 'designation' => $pending->designation ?? $pending->position,
                 'program' => $pending->program,

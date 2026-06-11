@@ -8,6 +8,7 @@ use App\Models\Student;
 use App\Models\Program;
 use App\Models\PendingEmployee;
 use App\Models\Role;
+use App\Support\MiddleInitial;
 use Illuminate\Support\Str;
 
 class PendingStudentController extends Controller
@@ -32,11 +33,13 @@ class PendingStudentController extends Controller
 
     public function store(Request $request)
     {
+        MiddleInitial::mergeIntoRequest($request);
+
         $validated = $request->validate([
             'id_number'        => 'required|string|max:255',
             'firstname'        => 'required|string|max:255',
             'lastname'         => 'required|string|max:255',
-            'middle_initial'   => 'nullable|string|max:10',
+            'middle_initial'   => MiddleInitial::validationRule(),
             'birthday'         => 'nullable|date',
             'course'           => 'required|string|max:255',
             'year'             => 'required|string|max:255',

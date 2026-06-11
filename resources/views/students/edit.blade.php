@@ -107,14 +107,9 @@
                                required>
                     </div>
 
-                    <!-- Middle Initial -->
                     <div class="col-md-4">
                         <label class="form-label">Middle Initial</label>
-                        <input type="text"
-                               name="middle_initial"
-                               class="form-control"
-                               placeholder="Middle Initial"
-                               value="{{ old('middle_initial', $student->middle_initial) }}">
+                        @include('partials.middle_initial_input', ['value' => old('middle_initial', $student->middle_initial)])
                     </div>
 
                     <!-- Birthday -->

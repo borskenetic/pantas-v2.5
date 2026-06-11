@@ -8,6 +8,7 @@ use App\Models\PendingStudent;
 use App\Models\Program;
 use App\Models\Student;
 use App\Models\StudentEditRequest;
+use App\Support\MiddleInitial;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -78,11 +79,13 @@ class StudentController extends Controller
     // Store new student
     public function store(Request $request)
     {
+        MiddleInitial::mergeIntoRequest($request);
+
         $validated = $request->validate([
             'id_number' => 'required|string|max:255|unique:students,id_number',
             'firstname' => 'required|string|max:255',
             'lastname' => 'required|string|max:255',
-            'middle_initial' => 'nullable|string|max:255',
+            'middle_initial' => MiddleInitial::validationRule(),
             'birthday' => 'nullable|date',
             'course' => 'required|string|max:255',
             'year' => 'required|string|max:255',
@@ -160,11 +163,13 @@ class StudentController extends Controller
     {
         $student = Student::findOrFail($id);
 
+        MiddleInitial::mergeIntoRequest($request);
+
         $validated = $request->validate([
             'id_number' => 'nullable|string|unique:students,id_number,' . $id,
             'lastname' => 'required|string|max:255',
             'firstname' => 'required|string|max:255',
-            'middle_initial' => 'nullable|string|max:255',
+            'middle_initial' => MiddleInitial::validationRule(),
             'birthday' => 'nullable|date',
         
             'course' => 'nullable|string|max:255',
@@ -278,7 +283,7 @@ class StudentController extends Controller
                 'id_number' => strtoupper($pending->id_number),
                 'lastname' => strtoupper($pending->lastname),
                 'firstname' => strtoupper($pending->firstname),
-                'middle_initial' => strtoupper($pending->middle_initial ?? ''),
+                'middle_initial' => MiddleInitial::normalize($pending->middle_initial),
                 'birthday' => $pending->birthday,
                 'course' => strtoupper($pending->course),
                 'year' => strtoupper($pending->year),
@@ -414,10 +419,12 @@ class StudentController extends Controller
             return back()->with('error', 'You already have a pending request.');
         }
 
+        MiddleInitial::mergeIntoRequest($request);
+
         $request->validate([
             'lastname' => 'required|string|max:255',
             'firstname' => 'required|string|max:255',
-            'middle_initial' => 'nullable|string|max:255',
+            'middle_initial' => MiddleInitial::validationRule(),
             'birthday' => 'nullable|date',
             'program_id' => 'nullable|exists:programs,id',
             'year' => 'nullable|string|max:10',
@@ -446,7 +453,7 @@ class StudentController extends Controller
             'student_id' => $student->id,
             'lastname' => $request->lastname,
             'firstname' => $request->firstname,
-            'middle_initial' => $request->middle_initial,
+            'middle_initial' => MiddleInitial::normalize($request->middle_initial),
             'birthday' => $request->birthday,
             'program_id' => $request->program_id,
             'year' => $request->year,
@@ -485,7 +492,7 @@ class StudentController extends Controller
         $student->update([
             'lastname' => $req->lastname,
             'firstname' => $req->firstname,
-            'middle_initial' => $req->middle_initial,
+            'middle_initial' => MiddleInitial::normalize($req->middle_initial),
             'birthday' => $req->birthday,
             'course' => $programCode,
             'year' => $req->year,

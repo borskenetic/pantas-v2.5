@@ -41,7 +41,7 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Middle Initial</label>
-                        <input type="text" name="middle_initial" class="form-control" value="{{ old('middle_initial', $employee->middle_initial) }}">
+                        @include('partials.middle_initial_input', ['value' => old('middle_initial', $employee->middle_initial)])
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">ID Number</label>

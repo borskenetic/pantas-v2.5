@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Employee;
 use App\Models\Program;
+use App\Support\MiddleInitial;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -76,10 +77,12 @@ class EmployeeController extends Controller
 
     public function store(Request $request)
     {
+        MiddleInitial::mergeIntoRequest($request);
+
         $validated = $request->validate([
             'firstname' => 'required|string|max:255',
             'lastname' => 'required|string|max:255',
-            'middle_initial' => 'nullable|string|max:16',
+            'middle_initial' => MiddleInitial::validationRule(),
             'employee_id' => 'required|string|max:255|unique:employees,employee_id',
             'designation' => 'required|string|max:255',
             'program' => 'required|string|max:64',
@@ -154,11 +157,13 @@ class EmployeeController extends Controller
     {
         $employee = Employee::findOrFail($id);
 
+        MiddleInitial::mergeIntoRequest($request);
+
         $validated = $request->validate([
             'employee_id' => 'required|string|max:255|unique:employees,employee_id,'.$employee->id,
             'firstname' => 'required|string|max:255',
             'lastname' => 'required|string|max:255',
-            'middle_initial' => 'nullable|string|max:16',
+            'middle_initial' => MiddleInitial::validationRule(),
             'designation' => 'required|string|max:255',
             'program' => 'required|string|max:64',
             'year_start_work' => 'required|string|max:16',

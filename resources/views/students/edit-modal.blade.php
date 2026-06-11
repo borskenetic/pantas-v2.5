@@ -35,8 +35,7 @@
 
             <div class="col-md-4">
               <label>Middle Initial</label>
-              <input type="text" name="middle_initial" class="form-control"
-                     value="{{ $student->middle_initial }}">
+              @include('partials.middle_initial_input', ['value' => $student->middle_initial])
             </div>
           </div>
 

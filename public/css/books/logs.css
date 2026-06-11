@@ -515,6 +515,10 @@
     min-height: 42px;
 }
 
+.circulation-autocomplete-wrap {
+    position: relative;
+}
+
 .circulation-suggest {
     display: none;
     position: absolute;
@@ -524,7 +528,7 @@
     z-index: 1050;
     max-height: 220px;
     overflow-y: auto;
-    margin-top: 4px;
+    margin-top: 0;
     border-radius: 8px !important;
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
 }
